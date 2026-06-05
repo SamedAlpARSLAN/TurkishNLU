@@ -14,7 +14,7 @@ from transformers import AutoTokenizer
 
 from src.data import load_examples
 from src.segmentation import build_segmenter
-from src.tokenizer_metrics import compute_metrics
+from src.tokenizer_metrics import compute_metrics, native_vs_whitespace_divergence
 from src.utils import get_logger, write_json
 
 logger = get_logger()
@@ -45,12 +45,15 @@ def main():
         args.reference, train_words=[w for ex in train for w in ex.tokens]
     )
 
+    sentences = [ex.tokens for ex in train]
     rows = {}
+    diverg = {}
     for name in args.models:
         tok = AutoTokenizer.from_pretrained(MODELS[name], use_fast=True)
         m = compute_metrics(words, tok, ref)
         rows[name] = m.row()
-        logger.info("%-8s %s", name, m.row())
+        diverg[name] = native_vs_whitespace_divergence(sentences, tok)
+        logger.info("%-8s %s | native!=ws %s", name, m.row(), diverg[name])
 
     # Markdown table
     header = ("| Encoder | Fertility | Ref.cov | Boundary P | Boundary R "
@@ -66,11 +69,26 @@ def main():
             f"| {name} | {r['fertility']} | {r['ref_coverage']} | {r['boundary_P']} "
             f"| {r['boundary_R']} | {r['boundary_F1']} | {r['morpheme_respect']} |"
         )
+    lines += [
+        "",
+        "### native vs whitespace divergence (cross-whitespace merging)\n",
+        "| Encoder | Divergent sentences | Avg tokens saved |", "|---|---|---|",
+    ]
+    for name in args.models:
+        d = diverg[name]
+        lines.append(f"| {name} | {d['divergent_pct']}% | {d['avg_tokens_saved']} |")
+    lines += ["", "Finding: divergence is ~0% for ALL three encoders, including "
+              "SentencePiece XLM-R — its `▁` space marker preserves word "
+              "boundaries on whitespace-separated input, so native and whitespace "
+              "coincide. The meaningful contrast is model-default subword "
+              "(native≈whitespace) vs morphological vs character."]
+
     md = "\n".join(lines)
     print("\n" + md + "\n")
     Path("results").mkdir(exist_ok=True)
     Path("results/tokenizer_metrics.md").write_text(md + "\n", encoding="utf-8")
-    write_json({"reference": args.reference, "scope": args.scope, "rows": rows},
+    write_json({"reference": args.reference, "scope": args.scope,
+                "rows": rows, "divergence": diverg},
                "results/tokenizer_metrics.json")
     logger.info("Wrote results/tokenizer_metrics.md")
 

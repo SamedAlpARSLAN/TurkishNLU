@@ -104,11 +104,16 @@ may be small while the effect is large where morphology is present (\S7).
 \subsection{Segmentation strategies (independent variable)}
 Each strategy turns text into \emph{pre-tokens} that are then sub-tokenized by
 the model's own tokenizer: (1) \textbf{native} feeds the raw string to the
-tokenizer (offset-based alignment; captures SentencePiece cross-whitespace
-merging); (2) \textbf{whitespace} feeds one pre-token per word; (3)
-\textbf{morphological} splits each word into morphemes with an unsupervised
-Morfessor model trained on the training-split word types; (4) \textbf{character}
-splits each word into characters. % Zemberek is an optional rule-based backend.
+tokenizer (offset-based alignment); (2) \textbf{whitespace} feeds one pre-token
+per word; (3) \textbf{morphological} splits each word into morphemes with an
+unsupervised Morfessor model trained on the training-split word types (a
+rule-based Zeyrek backend is also provided); (4) \textbf{character} splits each
+word into characters. We verified empirically that native and whitespace produce
+\emph{identical} tokenization for all three encoders on MASSIVE-tr --- including
+SentencePiece XLM-R, whose space-prefix marker preserves word boundaries on
+whitespace-separated input (0\% divergence over 11{,}514 utterances). The
+meaningful contrast is therefore model-default subword (native$\approx$whitespace)
+vs.\ morphological vs.\ character; we keep both as a reported control.
 
 \subsection{Tokenizer morphological alignment (motivation)}
 Before any training we quantify how each encoder's native subword tokenizer

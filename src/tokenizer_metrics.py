@@ -49,6 +49,35 @@ class TokenizerMetrics:
         }
 
 
+def native_vs_whitespace_divergence(sentences: list[list[str]], tokenizer) -> dict:
+    """Quantify how often raw-string (native) tokenization differs from per-word
+    (whitespace) tokenization — i.e. cross-whitespace merging by SentencePiece.
+
+    This justifies treating ``native`` and ``whitespace`` as distinct strategies:
+    for WordPiece models they coincide (~0 divergence), for SentencePiece/BPE the
+    tokenizer can merge across spaces, so the schemes genuinely differ.
+    """
+    n_diff = 0
+    tok_saved = 0
+    total = 0
+    for words in sentences:
+        if not words:
+            continue
+        total += 1
+        native = tokenizer(" ".join(words), add_special_tokens=False)["input_ids"]
+        per_word = sum(
+            len(tokenizer(w, add_special_tokens=False)["input_ids"]) for w in words
+        )
+        if len(native) != per_word:
+            n_diff += 1
+        tok_saved += per_word - len(native)
+    return {
+        "sentences": total,
+        "divergent_pct": round(100 * n_diff / total, 2) if total else 0.0,
+        "avg_tokens_saved": round(tok_saved / total, 3) if total else 0.0,
+    }
+
+
 def compute_metrics(
     words: list[str], tokenizer, reference: Segmenter, dedup: bool = True
 ) -> TokenizerMetrics:

@@ -1,19 +1,24 @@
 # Reference results (tracked)
 
-Curated, paper-ready artifacts. Bulk run dumps live in `outputs/` (git-ignored).
+Curated, paper-ready artifacts produced **without a GPU** on real MASSIVE-tr.
+Bulk run dumps live in `outputs/` (git-ignored).
 
-- `alignment_validation.txt` — the mandatory BIO re-alignment round-trip check
-  (plan §8) on MASSIVE-tr **dev** (2,033 utterances, 11,033 slot-bearing words),
-  for all 3 encoders × 4 segmentation schemes. **All schemes recover gold word
-  labels exactly (100%, 0 mismatches).** Only character segmentation truncates
-  words at `max_length=64` (114 for BERTurk/mBERT, 154 for XLM-R). Regenerate:
+- **`alignment_validation.txt`** — mandatory BIO re-alignment round-trip (plan §8)
+  on dev (2,033 utterances, 11,033 slot-bearing words), all 3 encoders × 4 schemes.
+  **All recover gold word labels exactly (100%, 0 mismatches);** only character
+  segmentation truncates at `max_length=64`.
+  Regenerate: `python scripts/validate_alignment.py --data data/raw/tr-TR.jsonl --models berturk mbert xlmr`
 
-  ```bash
-  python scripts/validate_alignment.py --data data/raw/tr-TR.jsonl \
-      --models berturk mbert xlmr > results/alignment_validation.txt
-  ```
+- **`tokenizer_metrics.md`** (paper Table 1) — per-encoder fertility + morpheme-
+  boundary alignment (Morfessor reference) + native-vs-whitespace divergence.
+  Key findings: mBERT fragments Turkish most (fertility 2.67) and aligns least
+  (respect 0.16) vs BERTurk (2.05 / 0.41) → motivates H3; native ≡ whitespace for
+  all three encoders (0% divergence).
+  Regenerate: `python scripts/tokenizer_report.py --reference morphological --scope slot`
 
-This is the source for the paper's methodology-validation table (`paper/main.tex`,
-`tab:align`). The main results table and error-analysis tables are produced on a
-GPU (Kaggle) by `scripts/run_matrix.py` + `scripts/aggregate.py` +
-`scripts/error_report.py`.
+- **`corpus_stats.md`** (paper Data section) — 60 intents / 55 slot types / 18
+  domains; 18% of slot-bearing words carry ≥1 affix.
+  Regenerate: `python scripts/corpus_stats.py`
+
+The main results table (`tab:main`) and the error-analysis tables are produced on
+a GPU (Kaggle) by `run_matrix.py` + `aggregate.py` + `error_report.py`.

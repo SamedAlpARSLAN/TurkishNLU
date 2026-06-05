@@ -1,0 +1,20 @@
+# Exact versions from the development environment (CPU), for reproducibility.
+# Use `requirements.txt` for normal installs; use this to reproduce results bit-
+# for-bit. On Kaggle/GPU, keep the platform's CUDA-enabled torch instead of the
+# CPU torch pinned here.
+Morfessor==2.0.6
+PyYAML==6.0.3
+nltk==3.9.4
+numpy==2.2.1
+pandas==2.3.3
+regex==2026.5.9
+requests==2.32.3
+safetensors==0.7.0
+scikit-learn==1.7.2
+scipy==1.17.1
+seqeval==1.2.2
+tokenizers==0.22.2
+torch==2.9.0            # CPU build here; on GPU use the platform CUDA wheel
+tqdm==4.67.3
+transformers==4.57.6
+zeyrek==0.1.3

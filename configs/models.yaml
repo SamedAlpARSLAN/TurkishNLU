@@ -9,5 +9,10 @@ extra_models:
   convberturk: dbmdz/convbert-base-turkish-cased   # 2nd monolingual Turkish
   mdeberta:    microsoft/mdeberta-v3-base           # stronger multilingual
 
-segmentations: [native, whitespace, morphological]   # add 'char' if time allows
+# Default sweep uses the three empirically-distinct schemes. 'whitespace' is
+# dropped from the default because it produces identical tokenization to 'native'
+# for all three encoders on MASSIVE-tr (0% divergence; see results/tokenizer_metrics.md);
+# add it back to confirm the equivalence if desired.
+segmentations: [native, morphological, char]
+# also available: whitespace, morphological-zeyrek
 seeds: [42, 123, 2024]

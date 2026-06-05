@@ -5,29 +5,46 @@
     "berturk": {
       "n_words": 4939,
       "fertility": 2.053,
-      "ref_coverage": 0.519,
-      "boundary_P": 0.461,
-      "boundary_R": 0.539,
+      "ref_coverage": 0.518,
+      "boundary_P": 0.46,
+      "boundary_R": 0.541,
       "boundary_F1": 0.497,
-      "morpheme_respect": 0.414
+      "morpheme_respect": 0.417
     },
     "mbert": {
       "n_words": 4939,
       "fertility": 2.671,
-      "ref_coverage": 0.519,
-      "boundary_P": 0.308,
+      "ref_coverage": 0.518,
+      "boundary_P": 0.306,
       "boundary_R": 0.541,
-      "boundary_F1": 0.393,
+      "boundary_F1": 0.391,
       "morpheme_respect": 0.163
     },
     "xlmr": {
       "n_words": 4939,
       "fertility": 2.21,
-      "ref_coverage": 0.519,
-      "boundary_P": 0.452,
-      "boundary_R": 0.609,
-      "boundary_F1": 0.519,
-      "morpheme_respect": 0.36
+      "ref_coverage": 0.518,
+      "boundary_P": 0.443,
+      "boundary_R": 0.6,
+      "boundary_F1": 0.51,
+      "morpheme_respect": 0.354
+    }
+  },
+  "divergence": {
+    "berturk": {
+      "sentences": 11514,
+      "divergent_pct": 0.0,
+      "avg_tokens_saved": 0.0
+    },
+    "mbert": {
+      "sentences": 11514,
+      "divergent_pct": 0.0,
+      "avg_tokens_saved": 0.0
+    },
+    "xlmr": {
+      "sentences": 11514,
+      "divergent_pct": 0.0,
+      "avg_tokens_saved": 0.0
     }
   }
 }
