@@ -75,11 +75,14 @@ suffices --- is an open, practically important question.
 and reported joint intent/slot with standard tokenization, without treating
 segmentation as a variable \cite{buyuk2023, turkishatis2020}.
 \paragraph{Turkish tokenization/segmentation.} Studies of tokenization impact in
-Turkish transformers \cite{toraman2022} and broad morphology-aware subword
-evaluations \cite{altinok2026} cover tasks such as NLI, STS, NER, POS and
-dependency parsing --- but \emph{not} task-oriented NLU (intent+slot).
-Morphological segmentation has helped Turkish MT, and morphology-aware
-segmentation has been studied for related agglutinative languages.
+Turkish transformers \cite{toraman2022}, broad morphology-aware subword
+evaluations \cite{altinok2026}, and large-scale analyses of the
+data--vocabulary--morphology interplay \cite{turkishsubword2026} cover tasks such
+as NLI, STS, NER, POS, dependency parsing and language modelling --- but
+\emph{not} task-oriented NLU (intent+slot). Hybrid morphology-aware tokenization
+has also been proposed for Turkish \cite{tokenswithmeaning2025}. Morphological
+segmentation has helped Turkish MT, and morphology-aware segmentation has been
+studied for related agglutinative languages.
 \paragraph{Gap.} The intersection --- a controlled segmentation comparison for
 Turkish joint intent+slot, with morpheme-boundary-level slot error analysis and
 a cross-scheme BIO alignment methodology --- is open. We deliberately scope our
@@ -89,8 +92,13 @@ claims to slot filling / task-oriented NLU and make no general
 \section{Data}
 We use \textbf{MASSIVE-tr} \cite{fitzgerald2022massive}, the Turkish split of
 Amazon MASSIVE (CC BY 4.0): 11{,}514 train / 2{,}033 dev / 2{,}974 test
-utterances with intent and slot annotations and official splits, ensuring
-comparability. % optional: MultiATIS++-tr as a second domain (flight) if time allows.
+utterances over 18 domains, with \textbf{60 intents} and \textbf{55 slot types}
+(109 BIO labels) and official splits, ensuring comparability. Utterances average
+5.5 tokens. Of the 17{,}668 slot-bearing words in train, \textbf{18\% carry at
+least one affix} (Morfessor estimate) --- the agglutinative pressure this study
+targets is concentrated in this subset, which is exactly why an overall F1 gap
+may be small while the effect is large where morphology is present (\S7).
+% optional: MultiATIS++-tr as a second domain (flight) if time allows.
 
 \section{Method}
 \subsection{Segmentation strategies (independent variable)}
@@ -101,6 +109,37 @@ merging); (2) \textbf{whitespace} feeds one pre-token per word; (3)
 \textbf{morphological} splits each word into morphemes with an unsupervised
 Morfessor model trained on the training-split word types; (4) \textbf{character}
 splits each word into characters. % Zemberek is an optional rule-based backend.
+
+\subsection{Tokenizer morphological alignment (motivation)}
+Before any training we quantify how each encoder's native subword tokenizer
+relates to Turkish morphology, using fertility (subwords per word) and the
+boundary precision/recall/F1 of subword boundaries against morpheme boundaries
+from an unsupervised reference (Morfessor), following tokenizer-evaluation
+practice for morphologically rich languages \cite{tokalign70,toraman2022}.
+Boundary metrics are computed over the words the reference segments
+(\emph{ref.\ cov.}); ``respect'' is the fraction of multi-subword words whose
+cuts never fall inside a morpheme. Table~\ref{tab:tok} shows that the
+multilingual mBERT fragments Turkish most (highest fertility) and aligns with
+morphology least (lowest boundary F1 and respect), while the monolingual BERTurk
+is the most morphologically coherent --- predicting, before training, that
+mBERT should gain most from morphological pre-segmentation (H3).
+
+\begin{table}[t]
+\centering
+\caption{Native-tokenizer morphological alignment on MASSIVE-tr slot words
+(type-level; Morfessor reference, 51.9\% coverage). Lower fertility and higher
+boundary-F1/respect mean more morphologically coherent subwording.}
+\label{tab:tok}
+\begin{tabular}{lccccc}
+\toprule
+Encoder & Fertility & Bound.\ P & Bound.\ R & Bound.\ F1 & Respect \\
+\midrule
+BERTurk & 2.05 & 0.46 & 0.54 & 0.50 & \textbf{0.41} \\
+mBERT   & \textbf{2.67} & 0.31 & 0.54 & 0.39 & 0.16 \\
+XLM-R   & 2.21 & 0.45 & 0.61 & \textbf{0.52} & 0.36 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Cross-scheme BIO re-alignment}
 Word-level BIO tags are re-projected onto pre-tokens: splitting a word labelled

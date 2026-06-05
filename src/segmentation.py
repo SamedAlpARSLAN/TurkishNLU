@@ -116,27 +116,68 @@ class MorfessorSegmenter:
         return self._cache[word]
 
 
-class ZemberekSegmenter:
-    """Optional rule-based Turkish morphology via the Zemberek JAR (plan §7.1).
+class ZeyrekSegmenter:
+    """Rule-based Turkish morphological segmentation via Zeyrek (a pure-Python
+    partial port of Zemberek). Complements the unsupervised Morfessor backend
+    with a *linguistic* analysis, enabling a Morfessor-vs-rule-based comparison
+    and a linguistically grounded morpheme reference for the tokenizer metrics.
 
-    Not enabled by default: Zemberek is JVM-based and adds a heavy dependency.
-    To use it, install a JPype/py4j bridge or call the JAR, implement
-    ``segment_word`` to return the surface morpheme sequence, and register the
-    name ``"morphological-zemberek"``. Left as a documented extension point so
-    the core pipeline stays pure-Python and reproducible.
+    Zeyrek returns morphological analyses whose ``formatted`` field exposes the
+    surface morphemes (e.g. ``ev:Noun+ler:A3pl+im:P1sg+den:Abl``). We take the
+    most-probable analysis and slice the *original* word by the morpheme lengths
+    so the segments always reconstruct the surface form exactly. When the surface
+    morphemes do not concatenate back to the word (phonological deviation), we
+    conservatively fall back to a single segment.
     """
 
-    name = "morphological-zemberek"
+    name = "morphological-zeyrek"
     requires_pretokenization = True
 
-    def __init__(self, *_, **__):
-        raise NotImplementedError(
-            "ZemberekSegmenter is an optional extension; use MorfessorSegmenter "
-            "for the reproducible default. See README 'Morphology backends'."
-        )
+    def __init__(self) -> None:
+        try:
+            import logging as _logging
 
-    def segment_word(self, word: str) -> list[str]:  # pragma: no cover
-        raise NotImplementedError
+            import nltk
+            import zeyrek
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "zeyrek backend needs `pip install zeyrek nltk`"
+            ) from exc
+        try:  # zeyrek tokenizes via nltk punkt
+            nltk.data.find("tokenizers/punkt_tab")
+        except LookupError:
+            nltk.download("punkt_tab", quiet=True)
+        _logging.getLogger("zeyrek").setLevel(_logging.CRITICAL)  # mute debug spam
+        self._analyzer = zeyrek.MorphAnalyzer()
+        self._cache: dict[str, list[str]] = {}
+
+    @staticmethod
+    def _surface_morphs(formatted: str) -> list[str]:
+        body = formatted.split("] ", 1)[-1]
+        return [piece.rsplit(":", 1)[0] for piece in body.split("+") if piece]
+
+    def segment_word(self, word: str) -> list[str]:
+        if not word:
+            return [word]
+        if word in self._cache:
+            return self._cache[word]
+        out = [word]
+        try:
+            parses = self._analyzer.analyze(word)
+            parse = parses[0][0] if parses and parses[0] else None
+            if parse is not None:
+                morphs = self._surface_morphs(parse.formatted)
+                lengths = [len(m) for m in morphs]
+                if sum(lengths) == len(word) and len(lengths) > 1:
+                    sliced, i = [], 0
+                    for length in lengths:
+                        sliced.append(word[i : i + length])
+                        i += length
+                    out = sliced
+        except Exception:  # any analyzer hiccup -> safe single segment
+            out = [word]
+        self._cache[word] = out
+        return out
 
 
 def build_segmenter(
@@ -157,9 +198,11 @@ def build_segmenter(
         if train_words is None:
             raise ValueError("morphological segmenter requires train_words to fit on")
         return MorfessorSegmenter.train(train_words, seed=seed)
-    if name in ("morphological-zemberek", "zemberek"):
-        return ZemberekSegmenter()
+    if name in ("morphological-zeyrek", "zeyrek", "zemberek"):
+        return ZeyrekSegmenter()
     raise ValueError(f"unknown segmentation strategy: {name!r}")
 
 
+# Core experiment axis (plan §8). 'morphological-zeyrek' is an extra rule-based
+# backend for the Morfessor-vs-linguistic comparison.
 ALL_STRATEGIES = ("native", "whitespace", "morphological", "char")

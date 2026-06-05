@@ -33,8 +33,9 @@ def main():
         k, v = kv.split("=", 1)
         base[k] = yaml.safe_load(v)
     mc = yaml.safe_load(open(args.models_config, encoding="utf-8"))
+    available = {**mc.get("models", {}), **mc.get("extra_models", {})}
 
-    models = {k: mc["models"][k] for k in (args.models or mc["models"])}
+    models = {k: available[k] for k in (args.models or mc["models"])}
     segmentations = args.segmentations or mc["segmentations"]
     seeds = args.seeds or mc["seeds"]
 

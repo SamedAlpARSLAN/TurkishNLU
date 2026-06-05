@@ -92,11 +92,44 @@ def paired_bootstrap_frame(pred_a: str, pred_b: str, n_boot: int = 10000, seed: 
     return obs, p
 
 
+def _correct_flags(records, key):
+    out = {}
+    for r in records:
+        intent_ok = r["intent_gold"] == r["intent_pred"]
+        slot_ok = r["slots_gold"] == r["slots_pred"]
+        out[r["uid"]] = {
+            "intent": intent_ok, "slot": slot_ok, "frame": intent_ok and slot_ok
+        }[key]
+    return out
+
+
+def mcnemar_test(pred_a: str, pred_b: str, on: str = "frame"):
+    """Exact (binomial) McNemar test on paired correct/incorrect outcomes.
+
+    Returns (b, c, p) where b = #(A right, B wrong), c = #(A wrong, B right).
+    Exact two-sided p uses Binomial(b+c, 0.5) — no scipy dependency.
+    """
+    import json as _json
+    from math import comb
+
+    a = _correct_flags(_json.loads(Path(pred_a).read_text(encoding="utf-8")), on)
+    bb = _correct_flags(_json.loads(Path(pred_b).read_text(encoding="utf-8")), on)
+    uids = set(a) & set(bb)
+    b = sum(1 for u in uids if a[u] and not bb[u])
+    c = sum(1 for u in uids if not a[u] and bb[u])
+    n = b + c
+    if n == 0:
+        return b, c, 1.0
+    k = min(b, c)
+    tail = sum(comb(n, i) for i in range(k + 1)) * (0.5 ** n)
+    return b, c, min(1.0, 2 * tail)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--matrix", default="outputs/matrix_results.json")
     ap.add_argument("--compare", nargs=2, metavar=("PRED_A", "PRED_B"),
-                    help="two test_predictions.json paths for a paired bootstrap")
+                    help="two test_predictions.json paths for paired significance")
     args = ap.parse_args()
 
     cells = load_cells(args.matrix)
@@ -110,6 +143,9 @@ def main():
     if args.compare:
         diff, p = paired_bootstrap_frame(*args.compare)
         print(f"\nPaired bootstrap (frame acc): A-B = {diff:+.4f}, p = {p:.4f}")
+        for metric in ("intent", "slot", "frame"):
+            b, c, pmc = mcnemar_test(*args.compare, on=metric)
+            print(f"McNemar ({metric:<6}): A-only={b} B-only={c} p={pmc:.4f}")
 
 
 if __name__ == "__main__":

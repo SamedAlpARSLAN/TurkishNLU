@@ -1,0 +1,16 @@
+{
+  "splits": {
+    "train": 11514,
+    "dev": 2033,
+    "test": 2974
+  },
+  "intents": 60,
+  "slot_types": 55,
+  "avg_tokens": 5.4944415494181,
+  "affix_distribution": {
+    "0": 14494,
+    "1": 2794,
+    "2": 337,
+    "3": 43
+  }
+}

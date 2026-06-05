@@ -1,0 +1,33 @@
+{
+  "reference": "morphological",
+  "scope": "slot",
+  "rows": {
+    "berturk": {
+      "n_words": 4939,
+      "fertility": 2.053,
+      "ref_coverage": 0.519,
+      "boundary_P": 0.461,
+      "boundary_R": 0.539,
+      "boundary_F1": 0.497,
+      "morpheme_respect": 0.414
+    },
+    "mbert": {
+      "n_words": 4939,
+      "fertility": 2.671,
+      "ref_coverage": 0.519,
+      "boundary_P": 0.308,
+      "boundary_R": 0.541,
+      "boundary_F1": 0.393,
+      "morpheme_respect": 0.163
+    },
+    "xlmr": {
+      "n_words": 4939,
+      "fertility": 2.21,
+      "ref_coverage": 0.519,
+      "boundary_P": 0.452,
+      "boundary_R": 0.609,
+      "boundary_F1": 0.519,
+      "morpheme_respect": 0.36
+    }
+  }
+}

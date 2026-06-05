@@ -131,17 +131,24 @@ def analyze(
     by_affix: dict[str, Bucket] = {}
     by_freq: dict[str, Bucket] = {}
     by_shift: dict[str, Bucket] = {}
+    by_frag: dict[str, Bucket] = {}
+    by_type: dict[str, Bucket] = {}
     overall = Bucket("overall")
 
-    for word, _gold, _pred, is_err in slot_error_iter(records):
+    for word, gold, _pred, is_err in slot_error_iter(records):
         overall.add(is_err)
         by_affix.setdefault((ab := _affix_bucket(affix_count(word, segmenter))), Bucket(ab)).add(is_err)
         by_freq.setdefault((fb := _freq_bucket(train_freq.get(word, 0))), Bucket(fb)).add(is_err)
+        slot_type = gold[2:] if len(gold) > 2 else gold
+        by_type.setdefault(slot_type, Bucket(slot_type)).add(is_err)
 
         if tokenizer is not None:
             v = violates_morphology(word, tokenizer, segmenter)
             sb = "single_subword" if v is None else ("violates_morpheme" if v else "respects_morpheme")
             by_shift.setdefault(sb, Bucket(sb)).add(is_err)
+            n_sub = len(subword_cutpoints(word, tokenizer)) + 1
+            fbk = "4+" if n_sub >= 4 else str(n_sub)
+            by_frag.setdefault(fbk, Bucket(fbk)).add(is_err)
 
     def order(d, keys):
         return [d[k].row() for k in keys if k in d]
@@ -152,8 +159,16 @@ def analyze(
         "by_surface_frequency": order(
             by_freq, ["unseen", "rare(1-2)", "mid(3-10)", "freq(>10)"]
         ),
+        # hardest slot types by error rate (>=20 support), worst first
+        "by_slot_type": [
+            b.row() for b in sorted(
+                (b for b in by_type.values() if b.n >= 20),
+                key=lambda b: b.error_rate, reverse=True,
+            )[:15]
+        ],
     }
     if tokenizer is not None:
+        report["by_fragmentation"] = order(by_frag, ["1", "2", "3", "4+"])
         report["by_segmentation_shift"] = order(
             by_shift, ["single_subword", "respects_morpheme", "violates_morpheme"]
         )
@@ -166,7 +181,9 @@ def format_report(report: dict) -> str:
     sections = [
         ("Error rate by affix count (morphological complexity)", "by_affix_count"),
         ("Error rate by surface-form training frequency", "by_surface_frequency"),
+        ("Error rate by model fragmentation (#subwords per word)", "by_fragmentation"),
         ("Error rate by segmentation shift (subword vs morpheme boundary)", "by_segmentation_shift"),
+        ("Hardest slot types (error rate, support>=20)", "by_slot_type"),
     ]
     for title, key in sections:
         if key not in report:

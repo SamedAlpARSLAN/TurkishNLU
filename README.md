@@ -30,22 +30,35 @@ plus several suffixes, and slot values live *inside* that structure.
 
 ```
 src/
-  data.py            MASSIVE-tr download + annot_utt -> word-level BIO parser
-  segmentation.py    native | whitespace | morphological (Morfessor) | char
-  alignment.py       BIO re-projection + mandatory round-trip validation (§8)
-  model.py           Joint intent+slot (shared encoder, 2 heads, optional CRF)
-  dataset.py         pre-aligned torch dataset + padding collator
-  evaluate.py        intent acc, span-level slot F1 (seqeval), frame accuracy
-  error_analysis.py  morphology-aware slot error buckets (the headline section)
-  train.py           one (model x segmentation x seed) run
+  data.py             MASSIVE-tr download + annot_utt -> word-level BIO parser
+  segmentation.py     native | whitespace | morphological (Morfessor/Zeyrek) | char
+  alignment.py        BIO re-projection + mandatory round-trip validation (§8)
+  model.py            Joint intent+slot (shared encoder, 2 heads, optional CRF)
+  dataset.py          pre-aligned torch dataset + padding collator
+  evaluate.py         intent acc, span-level slot F1 (seqeval), frame accuracy
+  tokenizer_metrics.py fertility + morpheme-boundary alignment (motivation)
+  error_analysis.py   morphology-aware slot error buckets (the headline section)
+  train.py            one (model x segmentation x seed) run
 scripts/
   download_data.py       fetch MASSIVE-tr
+  corpus_stats.py        dataset descriptive stats (Data section)
+  tokenizer_report.py    fertility + boundary alignment per encoder (Table 1)
   validate_alignment.py  the §8 guard: 100% label recovery across schemes
   run_matrix.py          sweep models x segmentations x seeds
-  aggregate.py           mean±std tables + paired bootstrap significance
+  aggregate.py           mean±std tables + bootstrap + McNemar significance
   error_report.py        morphological error analysis for a run
 configs/                 base.yaml, models.yaml, smoke.yaml
+results/                 tracked, paper-ready artifacts (alignment, tokenizer, corpus)
+paper/                   anonymized Springer LNCS skeleton (main.tex + refs)
 tests/                   sample_tr.jsonl + no-network core tests
+```
+
+### Training-free analyses (run now, no GPU)
+
+```bash
+python scripts/corpus_stats.py        # 60 intents / 55 slots / 18% affixed slot words
+python scripts/tokenizer_report.py    # per-encoder fertility + morpheme alignment
+python scripts/validate_alignment.py --data data/raw/tr-TR.jsonl --models berturk mbert xlmr
 ```
 
 ## Install
@@ -112,11 +125,16 @@ any training (plan §8).
 
 ## Morphology backends
 
-- **Morfessor** (default): unsupervised, trained on the train-split word types
-  only — reproducible from this repo, no external resources.
-- **Zemberek** (optional): rule-based Turkish morphology, higher fidelity but
-  JVM-based. `src/segmentation.py::ZemberekSegmenter` is a documented extension
-  point; wire in a JAR/JPype bridge and register `morphological-zemberek`.
+- **Morfessor** (`morphological`, default): unsupervised, trained on the
+  train-split word types only — reproducible, no external resources, surface-
+  faithful (splits ~60% of Turkish word types, e.g. `faturalarımdan ->
+  fatura+ları+mdan`).
+- **Zeyrek** (`morphological-zeyrek`): pure-Python rule-based Turkish analyzer (a
+  Zemberek port). Linguistic morpheme boundaries (`evlerimden -> ev+ler+im+den`);
+  conservatively falls back to a single segment under phonological deviation.
+  Needs `pip install zeyrek nltk`.
+- **Zemberek (JVM)** (optional): the original framework, highest fidelity but
+  Java-based — wire in a JAR/JPype bridge if desired.
 
 The error analysis uses the Morfessor morpheme count as an affix-count *proxy*;
 swap in Zemberek/Zeyrek for exact counts in the camera-ready.

@@ -4,5 +4,10 @@ models:
   mbert:   bert-base-multilingual-cased         # multilingual baseline
   xlmr:    xlm-roberta-base                      # strong multilingual baseline
 
+# Optional extra encoders to broaden RQ3 (opt in: --models berturk convberturk ...).
+extra_models:
+  convberturk: dbmdz/convbert-base-turkish-cased   # 2nd monolingual Turkish
+  mdeberta:    microsoft/mdeberta-v3-base           # stronger multilingual
+
 segmentations: [native, whitespace, morphological]   # add 'char' if time allows
 seeds: [42, 123, 2024]

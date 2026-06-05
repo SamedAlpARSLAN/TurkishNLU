@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal deps (no-network core tests)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy requests pyyaml morfessor
+      - name: Run no-network core tests
+        run: python tests/test_core.py
+      - name: Byte-compile all sources
+        run: python -m compileall -q src scripts
