@@ -14,8 +14,8 @@ comfortably in one Kaggle session (weekly ~30 GPU-hours free).
    **Internet: On** (needed to download MASSIVE + HuggingFace models).
 2. Get the code into the notebook. Easiest once it's on GitHub:
    ```python
-   !git clone https://github.com/<you>/turkish-nlu-segmentation.git
-   %cd turkish-nlu-segmentation
+   !git clone https://github.com/SamedAlpARSLAN/TurkishNLU.git
+   %cd TurkishNLU
    !pip install -q -r requirements.txt
    ```
    (Or zip the project, add it as a Kaggle *Dataset*, and `%cd` into it.)

@@ -1,5 +1,7 @@
 # Segmentation Strategies for Turkish Joint Intent Detection & Slot Filling
 
+[![ci](https://github.com/SamedAlpARSLAN/TurkishNLU/actions/workflows/ci.yml/badge.svg)](https://github.com/SamedAlpARSLAN/TurkishNLU/actions/workflows/ci.yml)
+
 A morphology-aware evaluation of how **segmentation / tokenization strategies**
 affect **joint intent detection and slot filling** in Turkish — an agglutinative
 language where a single surface word (e.g. *fatura+lar+ı+mız+dan*) packs a root
