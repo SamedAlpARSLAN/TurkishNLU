@@ -1,0 +1,16 @@
+# Tiny CPU smoke test: validates the whole pipeline end-to-end without a GPU
+# and without downloading MASSIVE. Uses the bundled synthetic sample and a
+# tiny model. Run: python -m src.train --config configs/smoke.yaml
+model_name: prajjwal1/bert-tiny
+segmentation: whitespace
+data_jsonl: tests/sample_tr.jsonl
+auto_download: false
+max_length: 32
+batch_size: 4
+eval_batch_size: 4
+lr: 5.0e-4
+epochs: 1
+warmup_ratio: 0.0
+seed: 42
+output_dir: outputs/smoke
+validate_alignment: true

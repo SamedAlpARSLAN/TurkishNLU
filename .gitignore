@@ -1,0 +1,24 @@
+# Data & model artifacts (reproducible from scripts; do not commit)
+data/raw/
+data/cache/
+outputs/
+runs/
+*.tar.gz
+*.bin
+*.safetensors
+*.pt
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

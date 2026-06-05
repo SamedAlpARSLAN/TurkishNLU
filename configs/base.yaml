@@ -1,0 +1,25 @@
+# Shared defaults. Override model_name / segmentation / seed per run, or sweep
+# them with scripts/run_matrix.py. Hyperparameters target a single mid-range GPU;
+# a full cell fine-tunes in minutes on ~12k MASSIVE-tr examples (plan §8, §12).
+model_name: dbmdz/bert-base-turkish-cased
+segmentation: native            # native | whitespace | morphological | char
+data_jsonl: data/raw/tr-TR.jsonl
+auto_download: true
+
+max_length: 64
+batch_size: 32
+eval_batch_size: 64
+lr: 5.0e-5
+epochs: 5
+warmup_ratio: 0.1
+weight_decay: 0.01
+dropout: 0.1
+
+seed: 42
+use_crf: false
+slot_loss_weight: 1.0
+eval_metric: frame_acc          # dev model-selection metric
+output_dir: outputs
+save_model: false
+validate_alignment: true        # hard guard (plan §8)
+limit_train: null               # set small (e.g. 200) for a CPU smoke test

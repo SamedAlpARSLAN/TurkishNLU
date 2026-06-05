@@ -1,0 +1,8 @@
+# The three encoders in the primary matrix (plan §7.3). Used by run_matrix.py.
+models:
+  berturk: dbmdz/bert-base-turkish-cased       # monolingual Turkish (main)
+  mbert:   bert-base-multilingual-cased         # multilingual baseline
+  xlmr:    xlm-roberta-base                      # strong multilingual baseline
+
+segmentations: [native, whitespace, morphological]   # add 'char' if time allows
+seeds: [42, 123, 2024]

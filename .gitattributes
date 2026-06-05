@@ -1,0 +1,5 @@
+# Normalize to LF so the repo behaves identically on Linux/Kaggle/Colab.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pt binary
