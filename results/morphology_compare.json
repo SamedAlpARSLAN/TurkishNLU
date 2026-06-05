@@ -1,0 +1,12 @@
+{
+  "scope": "slot",
+  "n_word_types": 4939,
+  "exact_agreement": 0.487,
+  "both_segment": 0.03,
+  "zeyrek_coverage": 0.037,
+  "avg_morphs_morfessor": 1.602,
+  "avg_morphs_zeyrek": 1.069,
+  "morfessor_vs_zeyrek_boundary_P": 0.733,
+  "morfessor_vs_zeyrek_boundary_R": 0.387,
+  "morfessor_vs_zeyrek_boundary_F1": 0.507
+}

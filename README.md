@@ -51,8 +51,11 @@ scripts/
   error_report.py        7-axis morphological error analysis for a run
   make_tables.py         auto-generate LaTeX tables (paper/tables_auto.tex)
   make_figures.py        paper figures (fertility, affix-error, frame heatmap)
+  morphology_compare.py  Morfessor vs Zeyrek backend agreement (training-free)
+  sweep.py               hyperparameter sweep for one (model, segmentation) cell
   predict.py             load a trained run and tag new Turkish utterances
 configs/                 base.yaml, models.yaml, smoke.yaml
+docs/                    model_card.md
 results/                 tracked, paper-ready artifacts (alignment, tokenizer, corpus)
 paper/                   anonymized Springer LNCS skeleton (main.tex + refs)
 tests/                   sample_tr.jsonl + no-network core tests

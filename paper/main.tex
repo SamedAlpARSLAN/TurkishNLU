@@ -180,7 +180,15 @@ whitespace) vs.\ morphological vs.\ character; we retain both default variants a
 a reported control. The unsupervised Morfessor backend genuinely segments Turkish
 (it splits $\sim$60\% of word types, e.g.\ \emph{faturalarımdan}\,$\rightarrow$\,
 \emph{fatura}+\emph{ları}+\emph{mdan}); morphological ambiguity is resolved by the
-single most-probable analysis, which we treat as a known error source.
+single most-probable analysis, which we treat as a known error source. We use
+Morfessor as the primary morphological backend rather than the rule-based Zeyrek
+because, on MASSIVE-tr slot words, Zeyrek is highly conservative --- it segments
+only $3.7\%$ of slot word types (many are proper nouns and place names with
+phonological alternations it does not analyse) --- whereas Morfessor offers far
+higher coverage and surface-faithful splits. The two backends agree exactly on
+$48.7\%$ of slot word types; where Zeyrek does segment, Morfessor matches its
+boundaries with precision $0.73$. We report this divergence transparently as a
+limitation of the unsupervised proxy.
 
 \subsection{Tokenizer morphological alignment (motivation)}
 \label{sec:tok}
