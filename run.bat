@@ -95,7 +95,8 @@ if not exist data\raw\tr-TR.jsonl python scripts\download_data.py
 python scripts\corpus_stats.py
 python scripts\tokenizer_report.py --reference morphological --scope slot
 python scripts\make_tables.py
-echo Sonuclar: results\ klasorunde
+python scripts\make_figures.py
+echo Sonuclar: results\ klasorunde (figurler: results\figures)
 goto done
 
 :erroran

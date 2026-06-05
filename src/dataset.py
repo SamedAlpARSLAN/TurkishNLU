@@ -25,6 +25,7 @@ class Feature:
     attention_mask: list[int]
     head_mask: list[int]  # 1 at supervised (pre-token head) positions
     slot_label_ids: list[int]  # IGNORE off heads
+    sub_to_head: list[int]  # per subword -> its word's head position (for pooling)
     intent_id: int
     word_head_pos: list[int]
     gold_word_tags: list[str]
@@ -63,6 +64,7 @@ class JointDataset(Dataset):
                     attention_mask=aligned.attention_mask,
                     head_mask=head_mask,
                     slot_label_ids=slot_ids,
+                    sub_to_head=aligned.sub_to_head,
                     intent_id=intent_id,
                     word_head_pos=aligned.word_head_pos,
                     gold_word_tags=ex.slots,
@@ -96,12 +98,14 @@ def make_collate(pad_token_id: int):
         attention = torch.tensor([pad(f.attention_mask, 0) for f in batch])
         head_mask = torch.tensor([pad(f.head_mask, 0) for f in batch], dtype=torch.bool)
         slot_labels = torch.tensor([pad(f.slot_label_ids, IGNORE) for f in batch])
+        group_head = torch.tensor([pad(f.sub_to_head, -1) for f in batch])
         intent_labels = torch.tensor([f.intent_id for f in batch])
         return {
             "input_ids": input_ids,
             "attention_mask": attention,
             "head_mask": head_mask,
             "slot_labels": slot_labels,
+            "group_head": group_head,
             "intent_labels": intent_labels,
             # eval metadata (python lists; not moved to device)
             "word_head_pos": [f.word_head_pos for f in batch],

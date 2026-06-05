@@ -44,6 +44,7 @@ class TrainConfig:
     slot_loss_weight: float = 1.0
     slot_loss: str = "ce"  # "ce" | "focal"
     focal_gamma: float = 2.0
+    subword_pool: str = "first"  # "first" | "mean" | "max"
     bio_repair: bool = False  # constrained-decoding cleanup at eval
     eval_metric: str = "frame_acc"  # model selection on dev
     output_dir: str = "outputs"
@@ -133,6 +134,7 @@ def run_training(cfg: TrainConfig) -> dict:
         slot_loss_weight=cfg.slot_loss_weight,
         slot_loss=cfg.slot_loss,
         focal_gamma=cfg.focal_gamma,
+        subword_pool=cfg.subword_pool,
     ).to(device)
 
     optimizer = torch.optim.AdamW(
@@ -164,6 +166,7 @@ def run_training(cfg: TrainConfig) -> dict:
                     batch["attention_mask"].to(device),
                     intent_labels=batch["intent_labels"].to(device),
                     slot_labels=batch["slot_labels"].to(device),
+                    group_head=batch["group_head"].to(device),
                 )
                 loss = out["loss"] / cfg.grad_accum_steps
             scaler.scale(loss).backward()

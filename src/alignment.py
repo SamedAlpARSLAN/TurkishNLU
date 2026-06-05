@@ -74,6 +74,7 @@ class Aligned:
     slot_tags: list[str | None]  # per subword; None -> IGNORE in loss
     word_head_pos: list[int]  # per source word -> subword index of its head; -1 if lost
     n_words: int
+    sub_to_head: list[int]  # per subword -> its word's head subword index (-1 if none)
 
     @property
     def n_truncated_words(self) -> int:
@@ -131,6 +132,11 @@ def align_example(
             pretoken_head.get(word_first_pretoken.get(wi, -1), -1)
             for wi in range(n_words)
         ]
+        # group every subword to its word's head (for subword pooling)
+        sub_to_head = [
+            word_head_pos[pword_idx[pid]] if pid is not None else -1
+            for pid in word_ids
+        ]
     else:
         # native: raw string + offset overlap
         text = " ".join(words)
@@ -149,12 +155,15 @@ def align_example(
         )
         slot_tags = []
         word_head_pos = [-1] * n_words
+        sub_word = []  # word index per subword (-1 for specials/unassigned)
         seen_word: set[int] = set()
         for sub_pos, (a, b) in enumerate(enc["offset_mapping"]):
             if a == b:  # special token
                 slot_tags.append(None)
+                sub_word.append(-1)
                 continue
             wi = _assign_word_by_overlap(a, b, spans)
+            sub_word.append(wi)
             if wi == -1:
                 slot_tags.append(None)
             elif wi not in seen_word:
@@ -163,6 +172,7 @@ def align_example(
                 slot_tags.append(word_tags[wi])
             else:
                 slot_tags.append(None)
+        sub_to_head = [word_head_pos[wi] if wi >= 0 else -1 for wi in sub_word]
 
     return Aligned(
         input_ids=enc["input_ids"],
@@ -170,6 +180,7 @@ def align_example(
         slot_tags=slot_tags,
         word_head_pos=word_head_pos,
         n_words=n_words,
+        sub_to_head=sub_to_head,
     )
 
 

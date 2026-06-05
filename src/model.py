@@ -96,6 +96,7 @@ class JointIntentSlot(nn.Module):
         slot_loss_weight: float = 1.0,
         slot_loss: str = "ce",  # "ce" | "focal"
         focal_gamma: float = 2.0,
+        subword_pool: str = "first",  # "first" | "mean" | "max"
     ):
         super().__init__()
         self.config = AutoConfig.from_pretrained(model_name)
@@ -112,13 +113,18 @@ class JointIntentSlot(nn.Module):
         self.ce = nn.CrossEntropyLoss(ignore_index=IGNORE)
         self.slot_loss = slot_loss
         self.focal_gamma = focal_gamma
+        self.subword_pool = subword_pool
 
-    def forward(self, input_ids, attention_mask, intent_labels=None, slot_labels=None):
+    def forward(self, input_ids, attention_mask, intent_labels=None, slot_labels=None,
+                group_head=None):
         out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
         seq = out.last_hidden_state  # (B,T,H)
         cls = seq[:, 0]  # [CLS]
         intent_logits = self.intent_head(self.dropout(cls))
-        slot_logits = self.slot_head(self.dropout(seq))  # (B,T,C)
+        slot_input = seq
+        if self.subword_pool != "first" and group_head is not None:
+            slot_input = self._pool_subwords(seq, group_head)
+        slot_logits = self.slot_head(self.dropout(slot_input))  # (B,T,C)
 
         result = {"intent_logits": intent_logits, "slot_logits": slot_logits}
         if intent_labels is None or slot_labels is None:
@@ -147,6 +153,18 @@ class JointIntentSlot(nn.Module):
         logp = F.log_softmax(logits[mask], dim=-1)
         lp = logp.gather(1, labels[mask].unsqueeze(1)).squeeze(1)
         return (-((1.0 - lp.exp()) ** self.focal_gamma) * lp).mean()
+
+    def _pool_subwords(self, seq, group_head):
+        """Replace each word's head-position representation with a pool (mean/max)
+        of all sub-tokens of that word. An ablation on how a fragmented word is
+        aggregated into a single representation for slot prediction (plan §7.1)."""
+        pooled = seq.clone()
+        for b in range(seq.size(0)):
+            g = group_head[b]
+            for h in torch.unique(g[g >= 0]).tolist():
+                grp = seq[b][g == h]
+                pooled[b, h] = grp.mean(0) if self.subword_pool == "mean" else grp.amax(0)
+        return pooled
 
     # CRF operates over the supervised (head) positions only. We pack the
     # per-example heads left-aligned, run the chain there, and ignore the rest.
@@ -180,13 +198,13 @@ class JointIntentSlot(nn.Module):
         )
 
     @torch.no_grad()
-    def predict(self, input_ids, attention_mask, head_mask=None):
+    def predict(self, input_ids, attention_mask, head_mask=None, group_head=None):
         """Return (intent_ids (B,), slot_ids (B,T)). Reads heads via ``head_mask``.
 
         For softmax we argmax everywhere (eval only reads head positions); for CRF
         we decode the packed head chain and scatter tags back to head positions.
         """
-        out = self.forward(input_ids, attention_mask)
+        out = self.forward(input_ids, attention_mask, group_head=group_head)
         intent_pred = out["intent_logits"].argmax(-1)
         slot_logits = out["slot_logits"]
         if not self.use_crf:

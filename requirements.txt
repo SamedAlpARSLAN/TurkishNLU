@@ -20,4 +20,4 @@ nltk>=3.8
 
 # ── Optional ──────────────────────────────────────────────────────────
 # datasets>=2.14   # alternative HuggingFace loading path (not required)
-# matplotlib>=3.7  # only for plotting figures in the paper
+matplotlib>=3.7    # for scripts/make_figures.py (paper figures)

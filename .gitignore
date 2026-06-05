@@ -3,6 +3,8 @@ data/raw/
 data/cache/
 outputs/
 runs/
+# figures are regenerable from committed result JSONs via make_figures.py
+results/figures/
 *.tar.gz
 *.bin
 *.safetensors

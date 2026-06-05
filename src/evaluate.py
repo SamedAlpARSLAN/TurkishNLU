@@ -91,7 +91,8 @@ def evaluate(model, dataloader, label_maps: LabelMaps, device: str,
         input_ids = batch["input_ids"].to(device)
         attention = batch["attention_mask"].to(device)
         head_mask = batch["head_mask"].to(device)
-        intent_pred, slot_ids = model.predict(input_ids, attention, head_mask)
+        group_head = batch["group_head"].to(device)
+        intent_pred, slot_ids = model.predict(input_ids, attention, head_mask, group_head)
         intent_pred = intent_pred.cpu().tolist()
         slot_ids = slot_ids.cpu().tolist()
 

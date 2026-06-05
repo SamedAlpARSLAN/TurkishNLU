@@ -50,6 +50,8 @@ scripts/
   aggregate.py           mean±std tables + bootstrap + McNemar significance
   error_report.py        7-axis morphological error analysis for a run
   make_tables.py         auto-generate LaTeX tables (paper/tables_auto.tex)
+  make_figures.py        paper figures (fertility, affix-error, frame heatmap)
+  predict.py             load a trained run and tag new Turkish utterances
 configs/                 base.yaml, models.yaml, smoke.yaml
 results/                 tracked, paper-ready artifacts (alignment, tokenizer, corpus)
 paper/                   anonymized Springer LNCS skeleton (main.tex + refs)
@@ -144,8 +146,10 @@ swap in Zemberek/Zeyrek for exact counts in the camera-ready.
 
 ## Ablations & extras
 
-- **CRF** (`use_crf=true`), **focal slot loss** (`slot_loss=focal`), and
-  **constrained BIO decoding** (`bio_repair=true`) are config flags on any run.
+- **CRF** (`use_crf=true`), **focal slot loss** (`slot_loss=focal`),
+  **subword pooling** (`subword_pool=first|mean|max` — how a fragmented word's
+  sub-tokens form its representation), and **constrained BIO decoding**
+  (`bio_repair=true`) are config flags on any run.
 - **Second domain:** `src/data.py::load_atis_format` reads JointBERT-style
   `seq.in`/`seq.out`/`label` splits, so you can drop in **MultiATIS++-tr** (flight
   domain) to test generalizability beyond MASSIVE.

@@ -20,6 +20,7 @@ use_crf: false                  # ablation: linear-chain CRF over head positions
 slot_loss_weight: 1.0
 slot_loss: ce                   # ablation: ce | focal (down-weights dominant O)
 focal_gamma: 2.0
+subword_pool: first             # ablation: first | mean | max (word repr from subwords)
 bio_repair: false               # ablation: constrained-decoding BIO cleanup at eval
 eval_metric: frame_acc          # dev model-selection metric
 output_dir: outputs
