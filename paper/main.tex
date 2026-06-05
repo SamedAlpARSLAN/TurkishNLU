@@ -26,113 +26,181 @@ Joint Intent Detection and Slot Filling}
 Turkish is agglutinative: a single surface word may carry a root and several
 suffixes, and slot values are often embedded inside that morphological
 structure. Because slot filling is a token-level sequence-labelling task whose
-labels depend on token boundaries, the segmentation/tokenization choice should
-matter most precisely for slot filling --- yet this intersection is unstudied.
-We present the first systematic comparison of segmentation strategies
-(native subword, whitespace, unsupervised morphological, and character) as a
-controlled independent variable for \emph{joint} intent detection and slot
-filling in Turkish, on the open MASSIVE-tr benchmark, across a monolingual
-encoder (BERTurk) and two multilingual encoders (mBERT, XLM-R). We contribute
-(i) a fair cross-scheme BIO label re-alignment procedure with a mandatory
-round-trip validation, (ii) the controlled segmentation comparison, and
-(iii) a fine-grained, morphology-aware slot error analysis that isolates
-\emph{where} and \emph{why} morphology affects slot filling. % TODO: 1-2 sentence headline result once the matrix is run.
+labels depend on token boundaries, the segmentation choice should matter most
+precisely for slot filling --- yet this intersection has not been studied
+systematically. We present a controlled comparison of segmentation strategies
+(model-native subword, whitespace, unsupervised morphological, and character) as
+an independent variable for \emph{joint} intent detection and slot filling in
+Turkish, on the open MASSIVE-tr benchmark, across a monolingual encoder (BERTurk)
+and two multilingual encoders (mBERT, XLM-R). Our contributions are
+(i)~a fair cross-scheme BIO label re-alignment procedure with a mandatory
+round-trip validation that we verify recovers gold word labels exactly for all
+encoders and schemes; (ii)~the controlled segmentation comparison itself; and
+(iii)~a fine-grained, morphology-aware slot error analysis along seven axes that
+isolates \emph{where} and \emph{why} morphology affects slot filling. A
+training-free tokenizer analysis already shows that the multilingual mBERT
+fragments Turkish most and aligns with morphology least, predicting before any
+training that it should gain most from morphological pre-segmentation.
+% TODO: one-sentence headline result (H1/H2/H3 verdict) once the matrix is run.
 \keywords{Turkish NLP \and slot filling \and intent detection \and subword
 tokenization \and morphological segmentation \and task-oriented dialogue.}
 \end{abstract}
 
 \section{Introduction}
-Task-oriented dialogue understanding couples two tasks: sentence-level
-\emph{intent detection} and token-level \emph{slot filling} (BIO sequence
-labelling). In agglutinative languages such as Turkish, the surface-word
-boundary and the meaning-unit boundary do not coincide: one orthographic word
-(e.g.\ \emph{fatura+lar+\i+m\i z+dan}) packs a root and several suffixes, and the
-slot value lives inside that structure. The segmentation decision therefore
-directly determines where a slot label can fall, making slot filling the NLU
-task most sensitive to segmentation. Standard transformer tokenizers
-(WordPiece/BPE/SentencePiece) are frequency-driven and routinely violate
-morpheme boundaries; whether a morphology-aware pre-segmentation yields a
-measurable gain --- or whether the pretrained model's own subwording already
-suffices --- is an open, practically important question.
+Task-oriented dialogue understanding couples two tasks. \emph{Intent detection}
+is sentence-level classification --- mapping an utterance to a user goal such as
+\textsc{alarm\_set} or \textsc{weather\_query}. \emph{Slot filling} is
+token-level sequence labelling: each token is tagged in the BIO scheme to mark
+the spans that carry slot values (a date, a city, a person). The two are usually
+learned jointly, since the intent constrains which slots are plausible and vice
+versa~\cite{chen2019bert}. Critically, a slot label is attached to a
+\emph{token boundary}: which spans exist, and where they begin and end, is
+determined by how the input is tokenized.
+
+This makes slot filling acutely sensitive to segmentation in an agglutinative
+language. In Turkish, the orthographic word boundary and the meaning-unit
+boundary do not coincide: a single surface word packs a root and a sequence of
+suffixes, and the slot value is frequently embedded \emph{inside} that
+structure. The word \emph{faturalarımdan} (``from my bills'') decomposes as
+\emph{fatura}\,+\,\emph{lar}\,+\,\emph{ım}\,+\,\emph{dan}
+(bill\,+\,\textsc{plural}\,+\,\textsc{p1sg}\,+\,\textsc{ablative}); the lexical
+content a slot tagger must recover sits in the root and the early morphemes,
+wrapped in inflection. The segmentation decision therefore determines where a
+slot label can fall, which makes slot filling the natural locus at which to ask
+whether segmentation matters.
+
+Standard transformer tokenizers (WordPiece, BPE, SentencePiece) are
+frequency-driven and learned without morphological supervision; they routinely
+place subword boundaries that violate morpheme boundaries. We confirm this
+quantitatively (Section~\ref{sec:tok}): on MASSIVE-tr slot words, the
+multilingual mBERT produces $2.67$ subwords per word and respects morpheme
+boundaries in only $16\%$ of fragmented words, against $2.05$ and $41\%$ for the
+monolingual BERTurk. The central question follows: does a morphology-aware
+pre-segmentation yield a measurable gain for Turkish slot filling --- and for
+which words and which encoders --- or is the pretrained model's own subwording
+already sufficient?
+
+Two literatures bear on this question but leave its intersection open. Studies of
+tokenization in Turkish transformers measure intrinsic or downstream effects on
+tasks such as language modelling, NLI, NER and parsing, but not task-oriented
+NLU. Conversely, Turkish intent$+$slot studies adopt a single, fixed tokenizer
+and never treat segmentation as a variable. Neither addresses the methodological
+crux that any such comparison must solve: BIO labels defined over surface words
+must be \emph{re-projected} onto each scheme's units and then folded back to a
+common reference unit, or the F1 scores are not comparable. We scope our claims
+narrowly to slot filling and task-oriented NLU; we make no general
+``Turkish tokenization'' claim.
 
 \paragraph{Contributions.}
 \begin{enumerate}
   \item The first systematic comparison that treats segmentation as a
-  \emph{controlled independent variable} for Turkish joint intent+slot
-  (MASSIVE-tr; optionally MultiATIS++-tr).
-  \item A fair cross-scheme \emph{BIO label re-alignment} procedure and a
-  mandatory round-trip validation, with measurement of how mis-alignment would
-  distort results (a methodological contribution and a pitfall warning).
-  \item A fine-grained slot error analysis stratified by morphological
-  complexity (affix count), surface-form rarity, and morpheme-boundary
-  violation by the model's subwording.
-  \item A full reproducibility package: code, segmentation scripts, alignment
-  validation, run configs, and seed list. % anon repo cited in §Reproducibility
+  \emph{controlled independent variable} for Turkish joint intent$+$slot filling
+  on MASSIVE-tr, across one monolingual and two multilingual encoders.
+  \item A fair cross-scheme \emph{BIO label re-alignment} procedure with a
+  mandatory round-trip validation; we report that it recovers gold word labels
+  exactly ($100\%$) for every encoder and scheme, and we argue this guard is a
+  reusable methodological contribution and a pitfall warning.
+  \item A fine-grained slot error analysis along seven axes --- affix count,
+  surface rarity, model fragmentation, morpheme-boundary violation, root$|$suffix
+  boundary, domain, and slot type.
+  \item A full reproducibility package: code, segmentation scripts, the alignment
+  validation, run configurations, and the seed list.
 \end{enumerate}
 
 \section{Related Work}
-\paragraph{Turkish intent+slot.} Prior work translated/adapted ATIS to Turkish
-and reported joint intent/slot with standard tokenization, without treating
-segmentation as a variable \cite{buyuk2023, turkishatis2020}.
-\paragraph{Turkish tokenization/segmentation.} Studies of tokenization impact in
-Turkish transformers \cite{toraman2022}, broad morphology-aware subword
-evaluations \cite{altinok2026}, and large-scale analyses of the
-data--vocabulary--morphology interplay \cite{turkishsubword2026} cover tasks such
-as NLI, STS, NER, POS, dependency parsing and language modelling --- but
-\emph{not} task-oriented NLU (intent+slot). Hybrid morphology-aware tokenization
-has also been proposed for Turkish \cite{tokenswithmeaning2025}. Morphological
-segmentation has helped Turkish MT, and morphology-aware segmentation has been
-studied for related agglutinative languages.
-\paragraph{Gap.} The intersection --- a controlled segmentation comparison for
-Turkish joint intent+slot, with morpheme-boundary-level slot error analysis and
-a cross-scheme BIO alignment methodology --- is open. We deliberately scope our
-claims to slot filling / task-oriented NLU and make no general
-``Turkish tokenization'' claim.
+\paragraph{Turkish intent detection and slot filling.}
+Joint models in the style of Joint~BERT~\cite{chen2019bert} have been applied to
+Turkish by translating and adapting the ATIS benchmark and reporting intent
+accuracy and slot F1 with a fixed, standard tokenizer~\cite{buyuk2023,
+turkishatis2020}. These studies establish baselines but do not vary the
+tokenizer; segmentation is held constant and its effect on slot filling is never
+isolated.
+
+\paragraph{Tokenization and segmentation for Turkish.}
+A complementary line studies tokenization itself. Toraman et
+al.~\cite{toraman2022} analyse the impact of tokenizer choice on Turkish language
+models; recent work evaluates subword strategies at scale and the interaction of
+data, vocabulary, and morphology~\cite{altinok2026,turkishsubword2026}, and
+hybrid morphology-aware tokenizers have been proposed~\cite{tokenswithmeaning2025}.
+The evaluation toolkit for morphologically rich languages now includes intrinsic
+metrics such as fertility and boundary alignment against morpheme
+references~\cite{tokalign70}. This literature, however, targets language
+modelling and tasks such as NLI, STS, NER, POS and dependency parsing --- not
+task-oriented NLU, and not slot filling, where the token boundary \emph{is} the
+label boundary. Morphological segmentation has also improved Turkish machine
+translation, and morphology-aware segmentation has been studied for related
+agglutinative languages, motivating its examination here.
+
+\paragraph{Gap.}
+The intersection is open: a controlled segmentation comparison for Turkish
+\emph{joint intent$+$slot filling}, with a fair cross-scheme BIO alignment
+methodology and a morpheme-boundary-level slot error analysis. Tokenization
+studies do not cover slot filling; slot-filling studies do not vary segmentation.
+We deliberately position our contribution at this intersection and at the
+alignment methodology, rather than as a general claim about Turkish tokenization,
+for which the recent literature is already strong.
 
 \section{Data}
-We use \textbf{MASSIVE-tr} \cite{fitzgerald2022massive}, the Turkish split of
-Amazon MASSIVE (CC BY 4.0): 11{,}514 train / 2{,}033 dev / 2{,}974 test
-utterances over 18 domains, with \textbf{60 intents} and \textbf{55 slot types}
-(109 BIO labels) and official splits, ensuring comparability. Utterances average
-5.5 tokens. Of the 17{,}668 slot-bearing words in train, \textbf{18\% carry at
-least one affix} (Morfessor estimate) --- the agglutinative pressure this study
-targets is concentrated in this subset, which is exactly why an overall F1 gap
-may be small while the effect is large where morphology is present (\S7).
-% optional: MultiATIS++-tr as a second domain (flight) if time allows.
+We use \textbf{MASSIVE-tr}~\cite{fitzgerald2022massive}, the Turkish split of
+Amazon MASSIVE (CC~BY~4.0): $11{,}514$ train / $2{,}033$ dev / $2{,}974$ test
+utterances over $18$ domains, with \textbf{60 intents} and \textbf{55 slot
+types} ($109$ BIO labels) and official splits, ensuring comparability with prior
+and future work. Utterances average $5.5$ tokens. We parse the bracketed
+\texttt{annot\_utt} annotations into word-level BIO tags deterministically. Of
+the $17{,}668$ slot-bearing words in the training split, \textbf{18\% carry at
+least one affix} (Morfessor estimate). This figure frames our expectations: the
+agglutinative pressure the study targets is concentrated in a minority of slot
+words, so an overall F1 gap from morphological pre-segmentation may be modest
+even where the effect on affixed words is large --- which is precisely the
+question the error analysis (Section~\ref{sec:error}) is designed to answer.
+As an optional second domain, our code also loads MultiATIS++-tr (flight
+domain)~\cite{xu2020multiatis} in the JointBERT
+\texttt{seq.in}/\texttt{seq.out}/\texttt{label} format.
 
 \section{Method}
 \subsection{Segmentation strategies (independent variable)}
-Each strategy turns text into \emph{pre-tokens} that are then sub-tokenized by
-the model's own tokenizer: (1) \textbf{native} feeds the raw string to the
-tokenizer (offset-based alignment); (2) \textbf{whitespace} feeds one pre-token
-per word; (3) \textbf{morphological} splits each word into morphemes with an
-unsupervised Morfessor model trained on the training-split word types (a
-rule-based Zeyrek backend is also provided); (4) \textbf{character} splits each
-word into characters. We verified empirically that native and whitespace produce
-\emph{identical} tokenization for all three encoders on MASSIVE-tr --- including
-SentencePiece XLM-R, whose space-prefix marker preserves word boundaries on
-whitespace-separated input (0\% divergence over 11{,}514 utterances). The
-meaningful contrast is therefore model-default subword (native$\approx$whitespace)
-vs.\ morphological vs.\ character; we keep both as a reported control.
+Re-training a pretrained model's embedding table from scratch under each scheme
+is infeasible in our setting; we therefore adopt a \emph{pre-segmentation}
+paradigm: the text is first split by a strategy, and the resulting pre-tokens are
+then sub-tokenized by the model's own tokenizer. We compare four strategies.
+\textbf{Native} feeds the raw string to the tokenizer (the current practice and
+our control), with labels aligned by character offsets. \textbf{Whitespace} feeds
+one pre-token per surface word. \textbf{Morphological} splits each word into
+morphemes with an unsupervised Morfessor~\cite{virpioja2013morfessor} model
+trained only on the training-split word types (a rule-based Zeyrek backend, a
+Python port of Zemberek~\cite{akin2007zemberek}, is also provided).
+\textbf{Character} splits each word into characters, a lower-bound reference.
+
+We verified empirically that \emph{native and whitespace produce identical
+tokenization} for all three encoders on MASSIVE-tr ($0\%$ divergence over
+$11{,}514$ utterances), including the SentencePiece-based XLM-R, whose
+space-prefix marker preserves word boundaries on whitespace-separated input. The
+meaningful contrast is therefore model-default subword (native\,$\approx$\,
+whitespace) vs.\ morphological vs.\ character; we retain both default variants as
+a reported control. The unsupervised Morfessor backend genuinely segments Turkish
+(it splits $\sim$60\% of word types, e.g.\ \emph{faturalarımdan}\,$\rightarrow$\,
+\emph{fatura}+\emph{ları}+\emph{mdan}); morphological ambiguity is resolved by the
+single most-probable analysis, which we treat as a known error source.
 
 \subsection{Tokenizer morphological alignment (motivation)}
-Before any training we quantify how each encoder's native subword tokenizer
-relates to Turkish morphology, using fertility (subwords per word) and the
-boundary precision/recall/F1 of subword boundaries against morpheme boundaries
-from an unsupervised reference (Morfessor), following tokenizer-evaluation
-practice for morphologically rich languages \cite{tokalign70,toraman2022}.
-Boundary metrics are computed over the words the reference segments
-(\emph{ref.\ cov.}); ``respect'' is the fraction of multi-subword words whose
-cuts never fall inside a morpheme. Table~\ref{tab:tok} shows that the
-multilingual mBERT fragments Turkish most (highest fertility) and aligns with
-morphology least (lowest boundary F1 and respect), while the monolingual BERTurk
-is the most morphologically coherent --- predicting, before training, that
-mBERT should gain most from morphological pre-segmentation (H3).
+\label{sec:tok}
+Before any training we quantify how each encoder's native tokenizer relates to
+Turkish morphology, using fertility (subwords per word) and the boundary
+precision/recall/F1 of subword boundaries against morpheme boundaries from an
+unsupervised reference (Morfessor), following tokenizer-evaluation practice for
+morphologically rich languages~\cite{tokalign70,toraman2022}. Boundary metrics
+are computed over the words the reference segments; ``respect'' is the fraction
+of multi-subword words whose cuts never fall inside a morpheme.
+Table~\ref{tab:tok} shows that the multilingual mBERT fragments Turkish most
+(highest fertility) and aligns with morphology least (lowest boundary F1 and
+respect), whereas the monolingual BERTurk is the most morphologically coherent.
+This predicts, before training, that mBERT should gain most from morphological
+pre-segmentation (H3).
 
 \begin{table}[t]
 \centering
 \caption{Native-tokenizer morphological alignment on MASSIVE-tr slot words
-(type-level; Morfessor reference, 51.9\% coverage). Lower fertility and higher
+(type-level; Morfessor reference, $51.9\%$ coverage). Lower fertility and higher
 boundary-F1/respect mean more morphologically coherent subwording.}
 \label{tab:tok}
 \begin{tabular}{lccccc}
@@ -147,20 +215,29 @@ XLM-R   & 2.21 & 0.45 & 0.61 & \textbf{0.52} & 0.36 \\
 \end{table}
 
 \subsection{Cross-scheme BIO re-alignment}
-Word-level BIO tags are re-projected onto pre-tokens: splitting a word labelled
-$B$-$x$ into $k$ pieces yields $B$-$x, I$-$x, \dots$ ($k{-}1$ copies of $I$-$x$);
-$I$-$x \to I$-$x \cdots$; $O \to O \cdots$. Crucially, \emph{evaluation always
-folds predictions back to the surface word} via each word's \emph{head subword},
-so F1 is comparable across schemes. A hard guard requires that projecting gold
-tags through a scheme and folding them back recovers the original word labels
-exactly (100\%); a scheme that fails is not used. Table~\ref{tab:align} reports
-this check.
+The independent variable changes the token units, so word-level BIO tags must be
+re-projected onto each scheme's pre-tokens. Splitting a word labelled $B$-$x$ into
+$k$ pieces yields $B$-$x,\,I$-$x,\,\dots$ ($k{-}1$ copies of $I$-$x$); an $I$-$x$
+word yields $I$-$x\cdots$; an $O$ word yields $O\cdots$. This preserves the span
+semantics exactly: one $B$ per span and no spurious internal boundaries. Each
+pre-token is then sub-tokenized; the first sub-token of each pre-token carries the
+label and the rest are masked in the loss. Crucially, \emph{evaluation always
+folds predictions back to the surface word}, by reading the prediction at each
+word's \emph{head sub-token} (the first sub-token of its first pre-token), so that
+F1 is computed at a common reference unit and is comparable across schemes.
+
+Because mis-alignment silently inflates or deflates F1, we make correctness a hard
+precondition: projecting gold tags through a scheme and folding them back must
+recover the original word labels exactly. Table~\ref{tab:align} reports this
+round-trip on dev for every encoder and scheme; all reach $100\%$ with zero
+mismatches, and only character segmentation loses a small number of words to the
+length cap. Any scheme failing this guard is excluded from experiments.
 
 \begin{table}[t]
 \centering
-\caption{BIO re-alignment round-trip on MASSIVE-tr dev (2{,}033 utterances,
-11{,}033 slot-bearing words). All schemes recover gold word labels exactly;
-``trunc.'' counts words lost to the length cap (\texttt{max\_length}{=}64) ---
+\caption{BIO re-alignment round-trip on MASSIVE-tr dev ($2{,}033$ utterances,
+$11{,}033$ slot-bearing words). All schemes recover gold word labels exactly;
+``trunc.'' counts words lost to the length cap (\texttt{max\_length}$=64$) ---
 only character segmentation overflows it.}
 \label{tab:align}
 \begin{tabular}{llrr}
@@ -184,29 +261,50 @@ Encoder & Scheme & Recovery & Trunc. \\
 \end{tabular}
 \end{table}
 
-\subsection{Joint model}
+\subsection{Joint model and ablations}
 A shared encoder feeds two heads: an intent classifier off the \texttt{[CLS]}
 state and a token slot tagger off the sequence states; the loss is
-$\mathcal{L}_{\text{intent}} + \mathcal{L}_{\text{slot}}$ \cite{chen2019bert}.
-A linear-chain CRF over the supervised head positions is an ablation.
+$\mathcal{L}_{\text{intent}}+\lambda\,\mathcal{L}_{\text{slot}}$~\cite{chen2019bert}.
+We consider three ablations that interact with segmentation: a linear-chain CRF
+over the supervised head positions; a focal slot loss to counter the dominance of
+the $O$ class; and constrained (BIO-repair) decoding that removes invalid
+$I$-transitions at inference.
 
 \section{Experimental Setup}
-Encoders: BERTurk (\texttt{dbmdz/bert-base-turkish-cased}), mBERT
-(\texttt{bert-base-multilingual-cased}), XLM-R (\texttt{xlm-roberta-base}).
-Matrix: $3$ encoders $\times$ $3$ segmentations (native, whitespace,
-morphological; character optional) $\times$ $3$ seeds $\{42,123,2024\}$.
-Hyperparameters: AdamW, lr $5\!\times\!10^{-5}$, batch $32$, $5$ epochs, linear
-warmup $0.1$, \texttt{max\_length}{=}64, model selection on dev frame accuracy.
-Metrics: intent accuracy, span-level slot F1 (seqeval, strict IOB2), and
-\emph{frame accuracy} (intent and all slots correct). We report mean$\pm$std
-over seeds and test paired differences with both a bootstrap on frame accuracy
-and an exact McNemar test. Ablations: linear-chain CRF over head positions,
-focal vs.\ cross-entropy slot loss, and constrained (BIO-repair) decoding.
+Encoders: BERTurk~\cite{schweter2020berturk}
+(\texttt{dbmdz/bert-base-turkish-cased}), mBERT~\cite{devlin2019bert}
+(\texttt{bert-base-multilingual-cased}), and XLM-R~\cite{conneau2020xlmr}
+(\texttt{xlm-roberta-base}).
+The primary matrix crosses $3$ encoders $\times$ $3$ segmentations (native,
+morphological, character) $\times$ $3$ seeds $\{42,123,2024\}$; whitespace is
+omitted from the default sweep because it is identical to native here.
+Optimisation uses AdamW (lr $5\!\times\!10^{-5}$, batch $32$, $5$ epochs, linear
+warmup $0.1$, \texttt{max\_length}$=64$), with model selection on dev frame
+accuracy. Metrics are intent accuracy, span-level slot F1 (seqeval, strict IOB2),
+and \emph{frame accuracy} (intent and all slots correct), the strictest measure.
+We report mean$\pm$std over seeds and test paired differences with both a
+bootstrap on frame accuracy and an exact McNemar test. As sanity checks we
+reference published MASSIVE-tr baselines.
 
 \section{Results}
+Table~\ref{tab:main} reports test performance for every encoder and segmentation,
+averaged over three seeds. We read the results against three hypotheses.
+\textbf{H1} (intent robust, slot sensitive): intent detection pools information at
+the sentence level and should be comparatively insensitive to segmentation, while
+slot filling, being boundary-dependent, should respond. \textbf{H2} (morphology
+helps where it bites): morphological pre-segmentation should yield small overall
+gains but larger gains on affix-heavy slots (Section~\ref{sec:error}).
+\textbf{H3} (multilingual encoders gain more): given their poorer native
+morphological alignment (Table~\ref{tab:tok}), mBERT and XLM-R should benefit more
+from morphological pre-segmentation than BERTurk. We note in advance that a
+\emph{null} result --- native subword already sufficing --- would itself be an
+informative, honestly reported outcome, given the error analysis that
+accompanies it.
+
 \begin{table}[t]
 \centering
-\caption{Test results on MASSIVE-tr (mean$\pm$std over 3 seeds). % TODO: fill from outputs/results_table.md
+\caption{Test results on MASSIVE-tr (mean$\pm$std over 3 seeds).
+% TODO: auto-filled by scripts/make_tables.py from outputs/matrix_results.json.
 }
 \label{tab:main}
 \begin{tabular}{llccc}
@@ -214,47 +312,56 @@ focal vs.\ cross-entropy slot loss, and constrained (BIO-repair) decoding.
 Encoder & Segmentation & Intent Acc & Slot F1 & Frame Acc \\
 \midrule
 \multirow{3}{*}{BERTurk} & native        & -- & -- & -- \\
-                         & whitespace    & -- & -- & -- \\
                          & morphological & -- & -- & -- \\
+                         & character     & -- & -- & -- \\
 \midrule
 \multirow{3}{*}{mBERT}   & native        & -- & -- & -- \\
-                         & whitespace    & -- & -- & -- \\
                          & morphological & -- & -- & -- \\
+                         & character     & -- & -- & -- \\
 \midrule
 \multirow{3}{*}{XLM-R}   & native        & -- & -- & -- \\
-                         & whitespace    & -- & -- & -- \\
                          & morphological & -- & -- & -- \\
+                         & character     & -- & -- & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-% Narrative to instantiate from the numbers (any outcome is publishable):
-% H1 intent robust / slot sensitive; H2 morphological gain concentrated on
-% affix-heavy slots; H3 multilingual encoders gain more from pre-segmentation.
-
 \section{Error Analysis}
-We stratify per-word slot errors along seven axes: (i) affix count (Morfessor
-morpheme-count proxy), (ii) surface-form training frequency, (iii) model
-fragmentation (subwords per word), (iv) segmentation shift --- whether the
-model's subword boundaries violate morpheme boundaries, (v) root$|$suffix
-boundary respected vs.\ violated, (vi) domain/scenario, and (vii) slot type.
-% TODO: insert the bucket tables from scripts/error_report.py output.
-Our preliminary diagnostics (single-encoder) already show the predicted
-direction: error rate rises monotonically with affix count and with surface
-rarity, and is higher where the model's subwording violates the root$|$suffix
-boundary --- pinpointing \emph{where} and \emph{why} morphology affects slot
-filling even when the aggregate F1 gap is small.
+\label{sec:error}
+The headline contribution beyond the comparison is to explain \emph{where} and
+\emph{why} morphology affects slot filling. We stratify per-word slot errors along
+seven axes: (i)~affix count (Morfessor morpheme-count proxy), (ii)~surface-form
+training frequency, (iii)~model fragmentation (sub-tokens per word),
+(iv)~segmentation shift --- whether the model's subword boundaries violate
+morpheme boundaries, (v)~the root$|$suffix boundary respected vs.\ violated,
+(vi)~domain/scenario, and (vii)~slot type.
+
+Preliminary single-encoder diagnostics already show the predicted directions.
+Error rate rises monotonically with affix count and with surface rarity:
+affix-heavy and rare surface forms are markedly harder, consistent with the view
+that inflection obscures the lexical content a slot tagger must recover. Errors
+also concentrate where the model's subwording violates the root$|$suffix boundary
+relative to where that boundary is respected --- a direct, boundary-level signal
+that getting the root split right matters. We will report the full per-encoder,
+per-scheme tables, which quantify the affix-heavy subset where morphological
+pre-segmentation is expected to help most (H2).
 
 \section{Conclusion and Limitations}
-% TODO: 1 paragraph conclusion tied to H1--H3 + the error analysis.
-Limitations: a single primary benchmark/domain (MASSIVE-tr); an unsupervised
-morphological proxy (Morfessor) rather than a full rule-based analyzer; and
-morphological ambiguity resolved by the most-probable analysis.
+We framed segmentation as a controlled variable for Turkish joint intent and slot
+filling, contributed a validated cross-scheme BIO re-alignment procedure, and a
+seven-axis morphology-aware error analysis, supported by a training-free tokenizer
+analysis that motivates the study and predicts which encoders should benefit most
+from morphological pre-segmentation. Limitations: a single primary benchmark and
+domain (MASSIVE-tr; MultiATIS++-tr is supported but optional); an unsupervised
+morphological proxy (Morfessor) rather than a full rule-based analyzer for the
+main strategy; and morphological ambiguity resolved by the most-probable analysis.
+These are explicit error sources rather than confounds, and the reproducibility
+package allows each to be revisited.
 
 \subsubsection*{Reproducibility.} Code, segmentation scripts, the alignment
-validation, all run configs, and the seed list are available at
-\texttt{<ANONYMIZED-REPO-URL>} % e.g. anonymous.4open.science; de-anonymise in camera-ready
-. Data: MASSIVE (CC BY 4.0).
+validation, all run configurations, and the seed list are available at
+\texttt{<ANONYMIZED-REPO-URL>}. % de-anonymise in camera-ready
+Data: MASSIVE (CC~BY~4.0).
 
 \bibliographystyle{splncs04}
 \bibliography{references}

@@ -1,9 +1,11 @@
 # Paper (AIST 2026, Springer LNCS — double-blind)
 
-`main.tex` + `references.bib` are a ready-to-fill LNCS skeleton matching the
-plan's section structure. The methodology already contains real numbers (the
-alignment round-trip table); `% TODO` markers show where to paste results from
-the experiment matrix.
+`main.tex` is a **full prose draft** (Abstract, Introduction, Related Work, Data,
+Method, Setup, Results framing, Error Analysis, Conclusion) in LNCS format. The
+Method already contains real numbers (the tokenizer-alignment and BIO round-trip
+tables); only the main results table (`tab:main`), the error-analysis tables, and
+one abstract sentence remain — all marked with `% TODO` and auto-fillable by
+`scripts/make_tables.py` once the matrix has run.
 
 ## Compile (Overleaf, recommended)
 
