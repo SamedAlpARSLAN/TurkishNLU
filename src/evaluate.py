@@ -102,11 +102,12 @@ def evaluate(model, dataloader, label_maps: LabelMaps, device: str) -> EvalResul
                 )
             )
 
+    kw = dict(mode="strict", scheme=IOB2, zero_division=0)
     return EvalResult(
         intent_acc=intent_correct / max(total, 1),
-        slot_precision=precision_score(gold_seqs, pred_seqs, mode="strict", scheme=IOB2),
-        slot_recall=recall_score(gold_seqs, pred_seqs, mode="strict", scheme=IOB2),
-        slot_f1=f1_score(gold_seqs, pred_seqs, mode="strict", scheme=IOB2),
+        slot_precision=float(precision_score(gold_seqs, pred_seqs, **kw)),
+        slot_recall=float(recall_score(gold_seqs, pred_seqs, **kw)),
+        slot_f1=float(f1_score(gold_seqs, pred_seqs, **kw)),
         frame_acc=frame_correct / max(total, 1),
         n=total,
         records=records,

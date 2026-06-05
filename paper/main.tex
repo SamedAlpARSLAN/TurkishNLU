@@ -1,0 +1,211 @@
+% AIST 2026 submission — Springer LNCS, DOUBLE-BLIND (keep anonymous).
+% Compile on Overleaf with the "Springer LNCS" template (llncs.cls + splncs04.bst).
+% Up to 15 pages of content INCLUDING references.
+\documentclass[runningheads]{llncs}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\begin{document}
+
+\title{Does Morphology Matter for Turkish Slot Filling?\\
+A Systematic Study of Segmentation Strategies for\\
+Joint Intent Detection and Slot Filling}
+
+% --- DOUBLE-BLIND: do not de-anonymise until camera-ready ---
+\author{Anonymous Author(s)}
+\institute{Anonymous Institution \\ \email{anonymous@example.org}}
+
+\maketitle
+
+\begin{abstract}
+Turkish is agglutinative: a single surface word may carry a root and several
+suffixes, and slot values are often embedded inside that morphological
+structure. Because slot filling is a token-level sequence-labelling task whose
+labels depend on token boundaries, the segmentation/tokenization choice should
+matter most precisely for slot filling --- yet this intersection is unstudied.
+We present the first systematic comparison of segmentation strategies
+(native subword, whitespace, unsupervised morphological, and character) as a
+controlled independent variable for \emph{joint} intent detection and slot
+filling in Turkish, on the open MASSIVE-tr benchmark, across a monolingual
+encoder (BERTurk) and two multilingual encoders (mBERT, XLM-R). We contribute
+(i) a fair cross-scheme BIO label re-alignment procedure with a mandatory
+round-trip validation, (ii) the controlled segmentation comparison, and
+(iii) a fine-grained, morphology-aware slot error analysis that isolates
+\emph{where} and \emph{why} morphology affects slot filling. % TODO: 1-2 sentence headline result once the matrix is run.
+\keywords{Turkish NLP \and slot filling \and intent detection \and subword
+tokenization \and morphological segmentation \and task-oriented dialogue.}
+\end{abstract}
+
+\section{Introduction}
+Task-oriented dialogue understanding couples two tasks: sentence-level
+\emph{intent detection} and token-level \emph{slot filling} (BIO sequence
+labelling). In agglutinative languages such as Turkish, the surface-word
+boundary and the meaning-unit boundary do not coincide: one orthographic word
+(e.g.\ \emph{fatura+lar+\i+m\i z+dan}) packs a root and several suffixes, and the
+slot value lives inside that structure. The segmentation decision therefore
+directly determines where a slot label can fall, making slot filling the NLU
+task most sensitive to segmentation. Standard transformer tokenizers
+(WordPiece/BPE/SentencePiece) are frequency-driven and routinely violate
+morpheme boundaries; whether a morphology-aware pre-segmentation yields a
+measurable gain --- or whether the pretrained model's own subwording already
+suffices --- is an open, practically important question.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item The first systematic comparison that treats segmentation as a
+  \emph{controlled independent variable} for Turkish joint intent+slot
+  (MASSIVE-tr; optionally MultiATIS++-tr).
+  \item A fair cross-scheme \emph{BIO label re-alignment} procedure and a
+  mandatory round-trip validation, with measurement of how mis-alignment would
+  distort results (a methodological contribution and a pitfall warning).
+  \item A fine-grained slot error analysis stratified by morphological
+  complexity (affix count), surface-form rarity, and morpheme-boundary
+  violation by the model's subwording.
+  \item A full reproducibility package: code, segmentation scripts, alignment
+  validation, run configs, and seed list. % anon repo cited in §Reproducibility
+\end{enumerate}
+
+\section{Related Work}
+\paragraph{Turkish intent+slot.} Prior work translated/adapted ATIS to Turkish
+and reported joint intent/slot with standard tokenization, without treating
+segmentation as a variable \cite{buyuk2023, turkishatis2020}.
+\paragraph{Turkish tokenization/segmentation.} Studies of tokenization impact in
+Turkish transformers \cite{toraman2022} and broad morphology-aware subword
+evaluations \cite{altinok2026} cover tasks such as NLI, STS, NER, POS and
+dependency parsing --- but \emph{not} task-oriented NLU (intent+slot).
+Morphological segmentation has helped Turkish MT, and morphology-aware
+segmentation has been studied for related agglutinative languages.
+\paragraph{Gap.} The intersection --- a controlled segmentation comparison for
+Turkish joint intent+slot, with morpheme-boundary-level slot error analysis and
+a cross-scheme BIO alignment methodology --- is open. We deliberately scope our
+claims to slot filling / task-oriented NLU and make no general
+``Turkish tokenization'' claim.
+
+\section{Data}
+We use \textbf{MASSIVE-tr} \cite{fitzgerald2022massive}, the Turkish split of
+Amazon MASSIVE (CC BY 4.0): 11{,}514 train / 2{,}033 dev / 2{,}974 test
+utterances with intent and slot annotations and official splits, ensuring
+comparability. % optional: MultiATIS++-tr as a second domain (flight) if time allows.
+
+\section{Method}
+\subsection{Segmentation strategies (independent variable)}
+Each strategy turns text into \emph{pre-tokens} that are then sub-tokenized by
+the model's own tokenizer: (1) \textbf{native} feeds the raw string to the
+tokenizer (offset-based alignment; captures SentencePiece cross-whitespace
+merging); (2) \textbf{whitespace} feeds one pre-token per word; (3)
+\textbf{morphological} splits each word into morphemes with an unsupervised
+Morfessor model trained on the training-split word types; (4) \textbf{character}
+splits each word into characters. % Zemberek is an optional rule-based backend.
+
+\subsection{Cross-scheme BIO re-alignment}
+Word-level BIO tags are re-projected onto pre-tokens: splitting a word labelled
+$B$-$x$ into $k$ pieces yields $B$-$x, I$-$x, \dots$ ($k{-}1$ copies of $I$-$x$);
+$I$-$x \to I$-$x \cdots$; $O \to O \cdots$. Crucially, \emph{evaluation always
+folds predictions back to the surface word} via each word's \emph{head subword},
+so F1 is comparable across schemes. A hard guard requires that projecting gold
+tags through a scheme and folding them back recovers the original word labels
+exactly (100\%); a scheme that fails is not used. Table~\ref{tab:align} reports
+this check.
+
+\begin{table}[t]
+\centering
+\caption{BIO re-alignment round-trip on MASSIVE-tr dev (2{,}033 utterances,
+11{,}033 slot-bearing words). All schemes recover gold word labels exactly;
+``trunc.'' counts words lost to the length cap (\texttt{max\_length}{=}64) ---
+only character segmentation overflows it.}
+\label{tab:align}
+\begin{tabular}{llrr}
+\toprule
+Encoder & Scheme & Recovery & Trunc. \\
+\midrule
+\multirow{4}{*}{BERTurk}
+ & native        & 100.00\% & 0 \\
+ & whitespace    & 100.00\% & 0 \\
+ & morphological & 100.00\% & 0 \\
+ & character     & 100.00\% & 114 \\
+\midrule
+\multirow{2}{*}{mBERT}
+ & native/whitespace/morph. & 100.00\% & 0 \\
+ & character     & 100.00\% & 114 \\
+\midrule
+\multirow{2}{*}{XLM-R}
+ & native/whitespace/morph. & 100.00\% & 0 \\
+ & character     & 100.00\% & 154 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Joint model}
+A shared encoder feeds two heads: an intent classifier off the \texttt{[CLS]}
+state and a token slot tagger off the sequence states; the loss is
+$\mathcal{L}_{\text{intent}} + \mathcal{L}_{\text{slot}}$ \cite{chen2019bert}.
+A linear-chain CRF over the supervised head positions is an ablation.
+
+\section{Experimental Setup}
+Encoders: BERTurk (\texttt{dbmdz/bert-base-turkish-cased}), mBERT
+(\texttt{bert-base-multilingual-cased}), XLM-R (\texttt{xlm-roberta-base}).
+Matrix: $3$ encoders $\times$ $3$ segmentations (native, whitespace,
+morphological; character optional) $\times$ $3$ seeds $\{42,123,2024\}$.
+Hyperparameters: AdamW, lr $5\!\times\!10^{-5}$, batch $32$, $5$ epochs, linear
+warmup $0.1$, \texttt{max\_length}{=}64, model selection on dev frame accuracy.
+Metrics: intent accuracy, span-level slot F1 (seqeval, strict IOB2), and
+\emph{frame accuracy} (intent and all slots correct). We report mean$\pm$std
+over seeds and test paired differences with a bootstrap on frame accuracy.
+
+\section{Results}
+\begin{table}[t]
+\centering
+\caption{Test results on MASSIVE-tr (mean$\pm$std over 3 seeds). % TODO: fill from outputs/results_table.md
+}
+\label{tab:main}
+\begin{tabular}{llccc}
+\toprule
+Encoder & Segmentation & Intent Acc & Slot F1 & Frame Acc \\
+\midrule
+\multirow{3}{*}{BERTurk} & native        & -- & -- & -- \\
+                         & whitespace    & -- & -- & -- \\
+                         & morphological & -- & -- & -- \\
+\midrule
+\multirow{3}{*}{mBERT}   & native        & -- & -- & -- \\
+                         & whitespace    & -- & -- & -- \\
+                         & morphological & -- & -- & -- \\
+\midrule
+\multirow{3}{*}{XLM-R}   & native        & -- & -- & -- \\
+                         & whitespace    & -- & -- & -- \\
+                         & morphological & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% Narrative to instantiate from the numbers (any outcome is publishable):
+% H1 intent robust / slot sensitive; H2 morphological gain concentrated on
+% affix-heavy slots; H3 multilingual encoders gain more from pre-segmentation.
+
+\section{Error Analysis}
+We stratify per-word slot errors by (i) affix count (Morfessor morpheme-count
+proxy), (ii) surface-form training frequency, and (iii) whether the model's
+subword boundaries violate morpheme boundaries (\S\,segmentation shift).
+% TODO: insert the three bucket tables from scripts/error_report.py output.
+This explains \emph{where} and \emph{why} morphology affects slot filling even
+when the aggregate F1 gap is small.
+
+\section{Conclusion and Limitations}
+% TODO: 1 paragraph conclusion tied to H1--H3 + the error analysis.
+Limitations: a single primary benchmark/domain (MASSIVE-tr); an unsupervised
+morphological proxy (Morfessor) rather than a full rule-based analyzer; and
+morphological ambiguity resolved by the most-probable analysis.
+
+\subsubsection*{Reproducibility.} Code, segmentation scripts, the alignment
+validation, all run configs, and the seed list are available at
+\texttt{<ANONYMIZED-REPO-URL>} % e.g. anonymous.4open.science; de-anonymise in camera-ready
+. Data: MASSIVE (CC BY 4.0).
+
+\bibliographystyle{splncs04}
+\bibliography{references}
+
+\end{document}

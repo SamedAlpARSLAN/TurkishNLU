@@ -81,7 +81,9 @@ class MorfessorSegmenter:
         self._cache: dict[str, list[str]] = {}
 
     @classmethod
-    def train(cls, words: Iterable[str], seed: int = 42) -> "MorfessorSegmenter":
+    def train(
+        cls, words: Iterable[str], seed: int = 42, corpusweight: float = 1.0
+    ) -> "MorfessorSegmenter":
         try:
             import morfessor
         except ImportError as exc:  # pragma: no cover
@@ -90,12 +92,19 @@ class MorfessorSegmenter:
             ) from exc
 
         counts = Counter(w for w in words if w)
-        # Morfessor wants (count, atoms) pairs; atoms = the word's characters.
-        train_data = [(count, tuple(word)) for word, count in counts.items()]
-        model = morfessor.BaselineModel()
+        # Pass the word STRING as the compound so the atom representation matches
+        # what viterbi_segment uses at inference. (Passing tuple(word) instead
+        # trains a char-tuple lexicon that viterbi — which re-splits the string —
+        # cannot match, silently collapsing every word back to a single morph.)
+        train_data = [(count, word) for word, count in counts.items()]
+        model = morfessor.BaselineModel(corpusweight=corpusweight)
         model.load_data(train_data)
         model.train_batch()
-        logger.info("Trained Morfessor on %d word types", len(counts))
+        n_multi = sum(1 for *_, p in model.get_segmentations() if len(p) > 1)
+        logger.info(
+            "Trained Morfessor on %d word types (%d split into >1 morph)",
+            len(counts), n_multi,
+        )
         return cls(model)
 
     def segment_word(self, word: str) -> list[str]:

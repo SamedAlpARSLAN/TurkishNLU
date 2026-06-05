@@ -1,0 +1,46 @@
+16:37:04 | INFO    | Loaded 2033 dev examples from data/raw/tr-TR.jsonl
+16:37:05 | INFO    | [native] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+16:37:06 | INFO    | [whitespace] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+...........................................................
+...........................................................
+...........................................................
+...........................................................
+16:37:11 | INFO    | Trained Morfessor on 3334 word types (1822 split into >1 morph)
+16:37:12 | INFO    | [morphological] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+16:37:13 | INFO    | [char] round-trip 100.0000% exact | mismatches=0 | truncated_words=114 / 11033 | examples=2033 | PASS
+16:37:15 | INFO    | [native] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+16:37:15 | INFO    | [whitespace] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+...........................................................
+...........................................................
+...........................................................
+...........................................................
+...........................................................
+16:37:23 | INFO    | Trained Morfessor on 3334 word types (1837 split into >1 morph)
+16:37:23 | INFO    | [morphological] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+16:37:24 | INFO    | [char] round-trip 100.0000% exact | mismatches=0 | truncated_words=114 / 11033 | examples=2033 | PASS
+16:37:28 | INFO    | [native] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+16:37:28 | INFO    | [whitespace] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+...........................................................
+...........................................................
+...........................................................
+...........................................................
+16:37:34 | INFO    | Trained Morfessor on 3334 word types (1796 split into >1 morph)
+16:37:35 | INFO    | [morphological] round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS
+16:37:36 | INFO    | [char] round-trip 100.0000% exact | mismatches=0 | truncated_words=154 / 11033 | examples=2033 | PASS
+
+Validating 2033 'dev' examples
+======================================================================
+[berturk] native         PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[berturk] whitespace     PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[berturk] morphological  PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[berturk] char           PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=114 / 11033 | examples=2033 | PASS)
+[mbert  ] native         PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[mbert  ] whitespace     PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[mbert  ] morphological  PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[mbert  ] char           PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=114 / 11033 | examples=2033 | PASS)
+[xlmr   ] native         PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[xlmr   ] whitespace     PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[xlmr   ] morphological  PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=0 / 11033 | examples=2033 | PASS)
+[xlmr   ] char           PASS  (round-trip 100.0000% exact | mismatches=0 | truncated_words=154 / 11033 | examples=2033 | PASS)
+======================================================================
+ALL PASS

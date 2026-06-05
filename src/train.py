@@ -48,6 +48,11 @@ class TrainConfig:
     limit_train: int | None = None  # cap train size (smoke tests)
     save_model: bool = False
     validate_alignment: bool = True
+    grad_accum_steps: int = 1  # effective batch = batch_size * grad_accum_steps
+    grad_clip: float = 1.0
+    patience: int = 0  # epochs without dev improvement before stop (0 = off)
+    fp16: bool = True  # mixed precision on CUDA (no-op on CPU)
+    num_workers: int = 0
 
     @classmethod
     def from_dict(cls, d: dict) -> "TrainConfig":
@@ -73,13 +78,17 @@ def run_training(cfg: TrainConfig) -> dict:
     data_path = Path(cfg.data_jsonl)
     if cfg.auto_download and not data_path.exists():
         data_path = download_massive(data_path.parent or "data/raw")
-    train = load_examples(data_path, "train")
+    train_full = load_examples(data_path, "train")
     dev = load_examples(data_path, "dev")
     test = load_examples(data_path, "test")
-    if cfg.limit_train:
-        train = train[: cfg.limit_train]
-    label_maps = build_label_maps(train)
-    logger.info("intents=%d slots=%d", label_maps.num_intents, label_maps.num_slots)
+    # Label space always comes from the FULL train split, so capping train for a
+    # quick run never drops dev/test examples for an "unseen" label.
+    label_maps = build_label_maps(train_full)
+    train = train_full[: cfg.limit_train] if cfg.limit_train else train_full
+    logger.info(
+        "train=%d (of %d) intents=%d slots=%d",
+        len(train), len(train_full), label_maps.num_intents, label_maps.num_slots,
+    )
 
     # ── Tokenizer + segmenter ───────────────────────────────────────────────
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_name, use_fast=True)
@@ -103,9 +112,13 @@ def run_training(cfg: TrainConfig) -> dict:
     ds_train = JointDataset(train, segmenter, tokenizer, label_maps, cfg.max_length)
     ds_dev = JointDataset(dev, segmenter, tokenizer, label_maps, cfg.max_length)
     ds_test = JointDataset(test, segmenter, tokenizer, label_maps, cfg.max_length)
-    dl_train = DataLoader(ds_train, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate)
-    dl_dev = DataLoader(ds_dev, batch_size=cfg.eval_batch_size, collate_fn=collate)
-    dl_test = DataLoader(ds_test, batch_size=cfg.eval_batch_size, collate_fn=collate)
+    pin = device == "cuda"
+    dl_train = DataLoader(
+        ds_train, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate,
+        num_workers=cfg.num_workers, pin_memory=pin,
+    )
+    dl_dev = DataLoader(ds_dev, batch_size=cfg.eval_batch_size, collate_fn=collate, num_workers=cfg.num_workers)
+    dl_test = DataLoader(ds_test, batch_size=cfg.eval_batch_size, collate_fn=collate, num_workers=cfg.num_workers)
 
     # ── Model / optim ───────────────────────────────────────────────────────
     model = JointIntentSlot(
@@ -120,33 +133,43 @@ def run_training(cfg: TrainConfig) -> dict:
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
     )
-    total_steps = len(dl_train) * cfg.epochs
+    steps_per_epoch = max(1, len(dl_train) // cfg.grad_accum_steps)
+    total_steps = steps_per_epoch * cfg.epochs
     scheduler = get_linear_schedule_with_warmup(
         optimizer, int(cfg.warmup_ratio * total_steps), total_steps
     )
+    use_amp = cfg.fp16 and device == "cuda"
+    amp_device = "cuda" if use_amp else "cpu"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     # ── Train ───────────────────────────────────────────────────────────────
     best_metric = -1.0
     best_state = None
+    best_epoch = 0
     history = []
     for epoch in range(1, cfg.epochs + 1):
         model.train()
         running = 0.0
         t0 = time.time()
-        for batch in dl_train:
-            optimizer.zero_grad()
-            out = model(
-                batch["input_ids"].to(device),
-                batch["attention_mask"].to(device),
-                intent_labels=batch["intent_labels"].to(device),
-                slot_labels=batch["slot_labels"].to(device),
-            )
-            loss = out["loss"]
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-            scheduler.step()
-            running += loss.item()
+        optimizer.zero_grad()
+        for step, batch in enumerate(dl_train):
+            with torch.autocast(device_type=amp_device, enabled=use_amp):
+                out = model(
+                    batch["input_ids"].to(device),
+                    batch["attention_mask"].to(device),
+                    intent_labels=batch["intent_labels"].to(device),
+                    slot_labels=batch["slot_labels"].to(device),
+                )
+                loss = out["loss"] / cfg.grad_accum_steps
+            scaler.scale(loss).backward()
+            running += loss.item() * cfg.grad_accum_steps
+            if (step + 1) % cfg.grad_accum_steps == 0:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+                scheduler.step()
         dev_res = evaluate(model, dl_dev, label_maps, device)
         metric = getattr(dev_res, cfg.eval_metric)
         history.append({"epoch": epoch, "train_loss": running / len(dl_train), "dev": dev_res.as_row()})
@@ -156,7 +179,11 @@ def run_training(cfg: TrainConfig) -> dict:
         )
         if metric > best_metric:
             best_metric = metric
+            best_epoch = epoch
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+        elif cfg.patience and epoch - best_epoch >= cfg.patience:
+            logger.info("early stop: no dev improvement in %d epochs", cfg.patience)
+            break
 
     # ── Test with best dev checkpoint ───────────────────────────────────────
     if best_state is not None:
@@ -171,10 +198,15 @@ def run_training(cfg: TrainConfig) -> dict:
         "config": asdict(cfg),
         "labels": {"intents": label_maps.num_intents, "slots": label_maps.num_slots},
         "dev_best_metric": best_metric,
+        "dev_best_epoch": best_epoch,
         "history": history,
         "test": test_res.as_row(),
     }
     write_json(results, out_dir / "results.json")
+    write_json(
+        {"intent2id": label_maps.intent2id, "slot2id": label_maps.slot2id},
+        out_dir / "label_maps.json",
+    )
     # Stash per-example test predictions for error analysis (§9).
     write_json(
         [

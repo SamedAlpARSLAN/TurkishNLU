@@ -54,6 +54,37 @@ def affix_count(word: str, segmenter: Segmenter) -> int:
     return max(0, len(segmenter.segment_word(word)) - 1)
 
 
+def _internal_cutpoints(lengths: list[int]) -> set[int]:
+    """Cumulative internal boundary offsets from a list of segment lengths."""
+    pts, acc = set(), 0
+    for length in lengths[:-1]:
+        acc += length
+        pts.add(acc)
+    return pts
+
+
+def morpheme_cutpoints(word: str, segmenter: Segmenter) -> set[int]:
+    return _internal_cutpoints([len(s) for s in segmenter.segment_word(word)])
+
+
+def subword_cutpoints(word: str, tokenizer) -> set[int]:
+    """Internal char offsets where the model's own subword tokenizer cuts ``word``."""
+    enc = tokenizer(word, add_special_tokens=False, return_offsets_mapping=True)
+    return {a for (a, b) in enc["offset_mapping"] if a > 0 and b > a}
+
+
+def violates_morphology(word: str, tokenizer, segmenter: Segmenter) -> bool | None:
+    """True if a model subword boundary falls *inside* a morpheme (§9.4).
+
+    Returns None when the word is a single subword (no boundary to judge).
+    """
+    sub = subword_cutpoints(word, tokenizer)
+    if not sub:
+        return None
+    morph = morpheme_cutpoints(word, segmenter)
+    return not sub.issubset(morph)
+
+
 def _affix_bucket(n: int) -> str:
     return "3+" if n >= 3 else str(n)
 
@@ -87,22 +118,30 @@ def analyze(
     records: list[dict],
     train_examples: list[Example],
     segmenter: Segmenter,
+    tokenizer=None,
 ) -> dict:
-    """Return the full morphological error-analysis report."""
+    """Return the full morphological error-analysis report.
+
+    If ``tokenizer`` is given (the model whose predictions these are), also bucket
+    errors by whether the model's subword boundaries violate morpheme boundaries
+    (§9.4 segmentation-induced shift).
+    """
     train_freq = Counter(w for ex in train_examples for w in ex.tokens)
 
-    by_affix: dict[str, Bucket] = defaultdict(lambda: Bucket(""))
-    by_freq: dict[str, Bucket] = defaultdict(lambda: Bucket(""))
+    by_affix: dict[str, Bucket] = {}
+    by_freq: dict[str, Bucket] = {}
+    by_shift: dict[str, Bucket] = {}
     overall = Bucket("overall")
 
     for word, _gold, _pred, is_err in slot_error_iter(records):
         overall.add(is_err)
+        by_affix.setdefault((ab := _affix_bucket(affix_count(word, segmenter))), Bucket(ab)).add(is_err)
+        by_freq.setdefault((fb := _freq_bucket(train_freq.get(word, 0))), Bucket(fb)).add(is_err)
 
-        ab = _affix_bucket(affix_count(word, segmenter))
-        by_affix.setdefault(ab, Bucket(ab)).add(is_err)
-
-        fb = _freq_bucket(train_freq.get(word, 0))
-        by_freq.setdefault(fb, Bucket(fb)).add(is_err)
+        if tokenizer is not None:
+            v = violates_morphology(word, tokenizer, segmenter)
+            sb = "single_subword" if v is None else ("violates_morpheme" if v else "respects_morpheme")
+            by_shift.setdefault(sb, Bucket(sb)).add(is_err)
 
     def order(d, keys):
         return [d[k].row() for k in keys if k in d]
@@ -114,16 +153,24 @@ def analyze(
             by_freq, ["unseen", "rare(1-2)", "mid(3-10)", "freq(>10)"]
         ),
     }
+    if tokenizer is not None:
+        report["by_segmentation_shift"] = order(
+            by_shift, ["single_subword", "respects_morpheme", "violates_morpheme"]
+        )
     return report
 
 
 def format_report(report: dict) -> str:
     lines = [f"OVERALL slot-word error rate: {report['overall']['error_rate']:.4f} "
              f"(n={report['overall']['n']})", ""]
-    for title, key in [
+    sections = [
         ("Error rate by affix count (morphological complexity)", "by_affix_count"),
         ("Error rate by surface-form training frequency", "by_surface_frequency"),
-    ]:
+        ("Error rate by segmentation shift (subword vs morpheme boundary)", "by_segmentation_shift"),
+    ]
+    for title, key in sections:
+        if key not in report:
+            continue
         lines.append(title)
         lines.append(f"  {'bucket':<12}{'n':>8}{'errors':>8}{'err_rate':>10}")
         for r in report[key]:
