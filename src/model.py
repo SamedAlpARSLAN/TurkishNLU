@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from transformers import AutoConfig, AutoModel
 
 IGNORE = -100
@@ -93,6 +94,8 @@ class JointIntentSlot(nn.Module):
         dropout: float = 0.1,
         use_crf: bool = False,
         slot_loss_weight: float = 1.0,
+        slot_loss: str = "ce",  # "ce" | "focal"
+        focal_gamma: float = 2.0,
     ):
         super().__init__()
         self.config = AutoConfig.from_pretrained(model_name)
@@ -107,6 +110,8 @@ class JointIntentSlot(nn.Module):
         self.use_crf = use_crf
         self.crf = LinearChainCRF(num_slots) if use_crf else None
         self.ce = nn.CrossEntropyLoss(ignore_index=IGNORE)
+        self.slot_loss = slot_loss
+        self.focal_gamma = focal_gamma
 
     def forward(self, input_ids, attention_mask, intent_labels=None, slot_labels=None):
         out = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
@@ -123,13 +128,25 @@ class JointIntentSlot(nn.Module):
         if self.use_crf:
             slot_loss = self._crf_loss(slot_logits, slot_labels)
         else:
-            slot_loss = self.ce(
-                slot_logits.reshape(-1, self.num_slots), slot_labels.reshape(-1)
-            )
+            slot_loss = self._token_slot_loss(slot_logits, slot_labels)
         result["loss"] = intent_loss + self.slot_loss_weight * slot_loss
         result["intent_loss"] = intent_loss.detach()
         result["slot_loss"] = slot_loss.detach()
         return result
+
+    def _token_slot_loss(self, slot_logits, slot_labels):
+        """Token-level slot loss: standard CE, or focal CE to down-weight the
+        dominant 'O' class and rare-slot imbalance (ablation, plan §9)."""
+        logits = slot_logits.reshape(-1, self.num_slots)
+        labels = slot_labels.reshape(-1)
+        if self.slot_loss != "focal":
+            return self.ce(logits, labels)
+        mask = labels != IGNORE
+        if mask.sum() == 0:
+            return logits.sum() * 0.0
+        logp = F.log_softmax(logits[mask], dim=-1)
+        lp = logp.gather(1, labels[mask].unsqueeze(1)).squeeze(1)
+        return (-((1.0 - lp.exp()) ** self.focal_gamma) * lp).mean()
 
     # CRF operates over the supervised (head) positions only. We pack the
     # per-example heads left-aligned, run the chain there, and ignore the rest.

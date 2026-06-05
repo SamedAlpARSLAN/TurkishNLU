@@ -14,6 +14,24 @@ from seqeval.scheme import IOB2
 from .data import LabelMaps
 
 
+def repair_bio(tags: list[str]) -> list[str]:
+    """Fix invalid BIO transitions: an ``I-X`` not preceded by ``B-X``/``I-X``
+    becomes ``B-X`` (standard constrained-decoding cleanup; ablation)."""
+    out: list[str] = []
+    prev_type: str | None = None
+    for t in tags:
+        if len(t) > 2 and t[1] == "-":
+            pref, typ = t[0], t[2:]
+            if pref == "I" and typ != prev_type:
+                t = "B-" + typ
+            out.append(t)
+            prev_type = typ
+        else:
+            out.append("O")
+            prev_type = None
+    return out
+
+
 def fold_pred_to_words(word_head_pos, sub_pred_ids, id2slot) -> list[str]:
     out = []
     for p in word_head_pos:
@@ -56,7 +74,8 @@ class EvalResult:
 
 
 @torch.no_grad()
-def evaluate(model, dataloader, label_maps: LabelMaps, device: str) -> EvalResult:
+def evaluate(model, dataloader, label_maps: LabelMaps, device: str,
+             repair: bool = False) -> EvalResult:
     model.eval()
     id2slot = label_maps.id2slot
     id2intent = label_maps.id2intent
@@ -81,6 +100,8 @@ def evaluate(model, dataloader, label_maps: LabelMaps, device: str) -> EvalResul
             pred_tags = fold_pred_to_words(
                 batch["word_head_pos"][b], slot_ids[b], id2slot
             )
+            if repair:
+                pred_tags = repair_bio(pred_tags)
             gold_seqs.append(gold_tags)
             pred_seqs.append(pred_tags)
 

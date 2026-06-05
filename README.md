@@ -48,7 +48,8 @@ scripts/
   validate_alignment.py  the §8 guard: 100% label recovery across schemes
   run_matrix.py          sweep models x segmentations x seeds
   aggregate.py           mean±std tables + bootstrap + McNemar significance
-  error_report.py        morphological error analysis for a run
+  error_report.py        7-axis morphological error analysis for a run
+  make_tables.py         auto-generate LaTeX tables (paper/tables_auto.tex)
 configs/                 base.yaml, models.yaml, smoke.yaml
 results/                 tracked, paper-ready artifacts (alignment, tokenizer, corpus)
 paper/                   anonymized Springer LNCS skeleton (main.tex + refs)
@@ -140,6 +141,16 @@ any training (plan §8).
 
 The error analysis uses the Morfessor morpheme count as an affix-count *proxy*;
 swap in Zemberek/Zeyrek for exact counts in the camera-ready.
+
+## Ablations & extras
+
+- **CRF** (`use_crf=true`), **focal slot loss** (`slot_loss=focal`), and
+  **constrained BIO decoding** (`bio_repair=true`) are config flags on any run.
+- **Second domain:** `src/data.py::load_atis_format` reads JointBERT-style
+  `seq.in`/`seq.out`/`label` splits, so you can drop in **MultiATIS++-tr** (flight
+  domain) to test generalizability beyond MASSIVE.
+- **Morphology backends:** `morphological` (Morfessor) or `morphological-zeyrek`
+  (rule-based) as the segmentation strategy.
 
 ## Reproducibility
 

@@ -8,8 +8,10 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
+import tempfile
+
 from src.alignment import project_tag, segment_with_tags
-from src.data import build_label_maps, load_examples, parse_annot_utt
+from src.data import build_label_maps, load_atis_format, load_examples, parse_annot_utt
 from src.segmentation import CharSegmenter, WhitespaceSegmenter, build_segmenter
 
 
@@ -49,6 +51,19 @@ def test_label_maps():
     assert lm.slot2id["O"] == 0
     assert lm.num_intents >= 3
     assert all(t.startswith(("B-", "I-")) for t in lm.slot2id if t != "O")
+
+
+def test_atis_loader():
+    with tempfile.TemporaryDirectory() as d:
+        dd = pathlib.Path(d)
+        (dd / "seq.in").write_text("ankaraya uçuş ara\nyarın istanbul\n", encoding="utf-8")
+        (dd / "seq.out").write_text("B-toloc O O\nB-date B-toloc\n", encoding="utf-8")
+        (dd / "label").write_text("flight\nflight\n", encoding="utf-8")
+        exs = load_atis_format(dd)
+    assert len(exs) == 2
+    assert exs[0].tokens == ["ankaraya", "uçuş", "ara"]
+    assert exs[0].slots == ["B-toloc", "O", "O"]
+    assert exs[0].intent == "flight" and exs[0].scenario == "atis"
 
 
 def test_morfessor_optional():

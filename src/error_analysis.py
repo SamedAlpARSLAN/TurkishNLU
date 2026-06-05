@@ -119,12 +119,14 @@ def analyze(
     train_examples: list[Example],
     segmenter: Segmenter,
     tokenizer=None,
+    domains: dict[str, str] | None = None,
 ) -> dict:
     """Return the full morphological error-analysis report.
 
     If ``tokenizer`` is given (the model whose predictions these are), also bucket
-    errors by whether the model's subword boundaries violate morpheme boundaries
-    (§9.4 segmentation-induced shift).
+    errors by model fragmentation, by whether subword boundaries violate morpheme
+    boundaries (§9.4), and by whether the root|suffix boundary is respected (§9.2).
+    If ``domains`` (uid -> scenario) is given, add a per-domain breakdown.
     """
     train_freq = Counter(w for ex in train_examples for w in ex.tokens)
 
@@ -133,22 +135,35 @@ def analyze(
     by_shift: dict[str, Bucket] = {}
     by_frag: dict[str, Bucket] = {}
     by_type: dict[str, Bucket] = {}
+    by_root: dict[str, Bucket] = {}
+    by_domain: dict[str, Bucket] = {}
     overall = Bucket("overall")
 
-    for word, gold, _pred, is_err in slot_error_iter(records):
-        overall.add(is_err)
-        by_affix.setdefault((ab := _affix_bucket(affix_count(word, segmenter))), Bucket(ab)).add(is_err)
-        by_freq.setdefault((fb := _freq_bucket(train_freq.get(word, 0))), Bucket(fb)).add(is_err)
-        slot_type = gold[2:] if len(gold) > 2 else gold
-        by_type.setdefault(slot_type, Bucket(slot_type)).add(is_err)
+    for rec in records:
+        domain = domains.get(rec["uid"]) if domains else None
+        for word, gold, pred in zip(rec["tokens"], rec["slots_gold"], rec["slots_pred"]):
+            if gold == "O":
+                continue
+            is_err = gold != pred
+            overall.add(is_err)
+            by_affix.setdefault((ab := _affix_bucket(affix_count(word, segmenter))), Bucket(ab)).add(is_err)
+            by_freq.setdefault((fb := _freq_bucket(train_freq.get(word, 0))), Bucket(fb)).add(is_err)
+            by_type.setdefault(gold[2:] if len(gold) > 2 else gold, Bucket(gold[2:])).add(is_err)
+            if domain is not None:
+                by_domain.setdefault(domain, Bucket(domain)).add(is_err)
 
-        if tokenizer is not None:
-            v = violates_morphology(word, tokenizer, segmenter)
-            sb = "single_subword" if v is None else ("violates_morpheme" if v else "respects_morpheme")
-            by_shift.setdefault(sb, Bucket(sb)).add(is_err)
-            n_sub = len(subword_cutpoints(word, tokenizer)) + 1
-            fbk = "4+" if n_sub >= 4 else str(n_sub)
-            by_frag.setdefault(fbk, Bucket(fbk)).add(is_err)
+            if tokenizer is not None:
+                sub = subword_cutpoints(word, tokenizer)
+                v = violates_morphology(word, tokenizer, segmenter)
+                sb = "single_subword" if v is None else ("violates_morpheme" if v else "respects_morpheme")
+                by_shift.setdefault(sb, Bucket(sb)).add(is_err)
+                n_sub = len(sub) + 1
+                by_frag.setdefault("4+" if n_sub >= 4 else str(n_sub), Bucket(str(n_sub))).add(is_err)
+                morph = morpheme_cutpoints(word, segmenter)
+                if morph:  # word has a root|suffix boundary to judge
+                    root_b = min(morph)
+                    rk = "root_respected" if root_b in sub else "root_violated"
+                    by_root.setdefault(rk, Bucket(rk)).add(is_err)
 
     def order(d, keys):
         return [d[k].row() for k in keys if k in d]
@@ -159,7 +174,6 @@ def analyze(
         "by_surface_frequency": order(
             by_freq, ["unseen", "rare(1-2)", "mid(3-10)", "freq(>10)"]
         ),
-        # hardest slot types by error rate (>=20 support), worst first
         "by_slot_type": [
             b.row() for b in sorted(
                 (b for b in by_type.values() if b.n >= 20),
@@ -167,11 +181,17 @@ def analyze(
             )[:15]
         ],
     }
+    if by_domain:
+        report["by_domain"] = sorted(
+            (b.row() for b in by_domain.values()),
+            key=lambda r: r["error_rate"], reverse=True,
+        )
     if tokenizer is not None:
         report["by_fragmentation"] = order(by_frag, ["1", "2", "3", "4+"])
         report["by_segmentation_shift"] = order(
             by_shift, ["single_subword", "respects_morpheme", "violates_morpheme"]
         )
+        report["by_root_boundary"] = order(by_root, ["root_respected", "root_violated"])
     return report
 
 
@@ -183,6 +203,8 @@ def format_report(report: dict) -> str:
         ("Error rate by surface-form training frequency", "by_surface_frequency"),
         ("Error rate by model fragmentation (#subwords per word)", "by_fragmentation"),
         ("Error rate by segmentation shift (subword vs morpheme boundary)", "by_segmentation_shift"),
+        ("Error rate by root|suffix boundary (respected vs violated)", "by_root_boundary"),
+        ("Error rate by domain/scenario", "by_domain"),
         ("Hardest slot types (error rate, support>=20)", "by_slot_type"),
     ]
     for title, key in sections:

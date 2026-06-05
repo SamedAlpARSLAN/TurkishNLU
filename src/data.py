@@ -155,6 +155,34 @@ def load_examples(jsonl_path: str | Path, partition: str) -> list[Example]:
     return examples
 
 
+def load_atis_format(split_dir: str | Path) -> list[Example]:
+    """Load a JointBERT-style ATIS / MultiATIS++ split directory (plan §6.2).
+
+    Expects three parallel files in ``split_dir`` (one example per line):
+      seq.in   space-separated tokens
+      seq.out  space-separated BIO slot tags (len == tokens)
+      label    intent string
+    This is the de-facto format of MultiATIS++ releases; point it at the Turkish
+    ``tr`` split's train/dev/test folders to add a second domain (flight).
+    """
+    d = Path(split_dir)
+    tok_lines = (d / "seq.in").read_text(encoding="utf-8").splitlines()
+    tag_lines = (d / "seq.out").read_text(encoding="utf-8").splitlines()
+    intents = (d / "label").read_text(encoding="utf-8").splitlines()
+    examples, skipped = [], 0
+    for i, (toks, tags, intent) in enumerate(zip(tok_lines, tag_lines, intents)):
+        tokens, slots = toks.split(), tags.split()
+        if not tokens or len(tokens) != len(slots):
+            skipped += 1
+            continue
+        examples.append(
+            Example(uid=str(i), tokens=tokens, slots=slots,
+                    intent=intent.strip(), scenario="atis")
+        )
+    logger.info("Loaded %d examples from %s (skipped %d)", len(examples), d, skipped)
+    return examples
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Label maps
 # ─────────────────────────────────────────────────────────────────────────────

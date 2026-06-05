@@ -28,6 +28,7 @@ echo   5) CPU smoke test (uctan uca, indirme yok)
 echo   6) TUM MATRIS koş  (GPU onerilir - CPU cok yavas)
 echo   7) Sonuc tablolari (aggregate)
 echo   8) Hata analizi    (bir kosum icin)
+echo   A) Analizler       (korpus + tokenizer metrikleri, GPU'suz)
 echo   9) Proje klasorunu ac
 echo   0) Cikis
 echo ------------------------------------------------------------
@@ -41,6 +42,7 @@ if "%choice%"=="5" goto smoke
 if "%choice%"=="6" goto matrix
 if "%choice%"=="7" goto aggregate
 if "%choice%"=="8" goto erroran
+if /i "%choice%"=="a" goto analyses
 if "%choice%"=="9" goto openfolder
 if "%choice%"=="0" exit /b 0
 goto menu
@@ -85,6 +87,15 @@ goto done
 :aggregate
 echo.
 python scripts\aggregate.py
+goto done
+
+:analyses
+echo.
+if not exist data\raw\tr-TR.jsonl python scripts\download_data.py
+python scripts\corpus_stats.py
+python scripts\tokenizer_report.py --reference morphological --scope slot
+python scripts\make_tables.py
+echo Sonuclar: results\ klasorunde
 goto done
 
 :erroran

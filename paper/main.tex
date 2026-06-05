@@ -199,7 +199,9 @@ Hyperparameters: AdamW, lr $5\!\times\!10^{-5}$, batch $32$, $5$ epochs, linear
 warmup $0.1$, \texttt{max\_length}{=}64, model selection on dev frame accuracy.
 Metrics: intent accuracy, span-level slot F1 (seqeval, strict IOB2), and
 \emph{frame accuracy} (intent and all slots correct). We report mean$\pm$std
-over seeds and test paired differences with a bootstrap on frame accuracy.
+over seeds and test paired differences with both a bootstrap on frame accuracy
+and an exact McNemar test. Ablations: linear-chain CRF over head positions,
+focal vs.\ cross-entropy slot loss, and constrained (BIO-repair) decoding.
 
 \section{Results}
 \begin{table}[t]
@@ -231,12 +233,17 @@ Encoder & Segmentation & Intent Acc & Slot F1 & Frame Acc \\
 % affix-heavy slots; H3 multilingual encoders gain more from pre-segmentation.
 
 \section{Error Analysis}
-We stratify per-word slot errors by (i) affix count (Morfessor morpheme-count
-proxy), (ii) surface-form training frequency, and (iii) whether the model's
-subword boundaries violate morpheme boundaries (\S\,segmentation shift).
-% TODO: insert the three bucket tables from scripts/error_report.py output.
-This explains \emph{where} and \emph{why} morphology affects slot filling even
-when the aggregate F1 gap is small.
+We stratify per-word slot errors along seven axes: (i) affix count (Morfessor
+morpheme-count proxy), (ii) surface-form training frequency, (iii) model
+fragmentation (subwords per word), (iv) segmentation shift --- whether the
+model's subword boundaries violate morpheme boundaries, (v) root$|$suffix
+boundary respected vs.\ violated, (vi) domain/scenario, and (vii) slot type.
+% TODO: insert the bucket tables from scripts/error_report.py output.
+Our preliminary diagnostics (single-encoder) already show the predicted
+direction: error rate rises monotonically with affix count and with surface
+rarity, and is higher where the model's subwording violates the root$|$suffix
+boundary --- pinpointing \emph{where} and \emph{why} morphology affects slot
+filling even when the aggregate F1 gap is small.
 
 \section{Conclusion and Limitations}
 % TODO: 1 paragraph conclusion tied to H1--H3 + the error analysis.

@@ -35,6 +35,8 @@ def main():
 
     records = json.loads(Path(args.predictions).read_text(encoding="utf-8"))
     train = load_examples(args.data, "train")
+    # uid -> domain (scenario) for the per-domain breakdown
+    domains = {ex.uid: ex.scenario for ex in load_examples(args.data, "test")}
     # Morfessor proxy for morpheme counts, fit on the train split (plan §9 note).
     segmenter = build_segmenter(
         "morphological", train_words=[w for ex in train for w in ex.tokens]
@@ -46,7 +48,7 @@ def main():
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
 
-    report = analyze(records, train, segmenter, tokenizer=tokenizer)
+    report = analyze(records, train, segmenter, tokenizer=tokenizer, domains=domains)
     print("\n" + format_report(report))
 
     out = Path(args.predictions).with_name("error_analysis.json")

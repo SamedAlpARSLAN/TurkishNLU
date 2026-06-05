@@ -42,6 +42,9 @@ class TrainConfig:
     seed: int = 42
     use_crf: bool = False
     slot_loss_weight: float = 1.0
+    slot_loss: str = "ce"  # "ce" | "focal"
+    focal_gamma: float = 2.0
+    bio_repair: bool = False  # constrained-decoding cleanup at eval
     eval_metric: str = "frame_acc"  # model selection on dev
     output_dir: str = "outputs"
     run_name: str = ""
@@ -128,6 +131,8 @@ def run_training(cfg: TrainConfig) -> dict:
         dropout=cfg.dropout,
         use_crf=cfg.use_crf,
         slot_loss_weight=cfg.slot_loss_weight,
+        slot_loss=cfg.slot_loss,
+        focal_gamma=cfg.focal_gamma,
     ).to(device)
 
     optimizer = torch.optim.AdamW(
@@ -170,7 +175,7 @@ def run_training(cfg: TrainConfig) -> dict:
                 scaler.update()
                 optimizer.zero_grad()
                 scheduler.step()
-        dev_res = evaluate(model, dl_dev, label_maps, device)
+        dev_res = evaluate(model, dl_dev, label_maps, device, repair=cfg.bio_repair)
         metric = getattr(dev_res, cfg.eval_metric)
         history.append({"epoch": epoch, "train_loss": running / len(dl_train), "dev": dev_res.as_row()})
         logger.info(
@@ -188,7 +193,7 @@ def run_training(cfg: TrainConfig) -> dict:
     # ── Test with best dev checkpoint ───────────────────────────────────────
     if best_state is not None:
         model.load_state_dict(best_state)
-    test_res = evaluate(model, dl_test, label_maps, device)
+    test_res = evaluate(model, dl_test, label_maps, device, repair=cfg.bio_repair)
     logger.info("TEST %s | %s", cfg.tag, test_res.as_row())
 
     # ── Persist ─────────────────────────────────────────────────────────────
