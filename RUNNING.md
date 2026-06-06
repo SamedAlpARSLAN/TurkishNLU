@@ -10,15 +10,43 @@ comfortably in one Kaggle session (weekly ~30 GPU-hours free).
 
 ## Kaggle recipe
 
-1. Create a new **Kaggle Notebook** → Settings → **Accelerator: GPU T4 x1**, and
-   **Internet: On** (needed to download MASSIVE + HuggingFace models).
-2. Get the code into the notebook. Easiest once it's on GitHub:
-   ```python
-   !git clone https://github.com/SamedAlpARSLAN/TurkishNLU.git
-   %cd TurkishNLU
-   !pip install -q -r requirements.txt
-   ```
-   (Or zip the project, add it as a Kaggle *Dataset*, and `%cd` into it.)
+### Step 0 — prerequisites (do these first, or the clone/pip will fail)
+
+- **Verify your Kaggle account by phone.** Profile (top-right) → *Settings* →
+  *Phone Verification*. **Internet access is locked until you verify.** This is
+  the #1 cause of `Could not resolve host: github.com`.
+- **Make the GitHub repo Public** (so Kaggle can clone it without a token):
+  on GitHub → the repo → *Settings* → *General* → *Danger Zone* → *Change
+  visibility* → **Public**.
+
+### Step 1 — notebook settings (right-hand panel)
+
+Open the notebook, click the **`⋮` / Settings** panel on the right and set:
+- **Accelerator → GPU T4 x2** (or P100).
+- **Internet → On**  ← this fixes "Could not resolve host".
+
+If the **Internet** toggle is greyed out, you skipped the phone verification above.
+
+### Step 2 — get the code (each line on its OWN line; do NOT use `&&`)
+
+```python
+!git clone https://github.com/SamedAlpARSLAN/TurkishNLU.git
+```
+```python
+%cd TurkishNLU
+```
+```python
+!pip install -q -r requirements.txt
+```
+
+> ⚠️ `%cd` is a Jupyter magic and does **not** accept `&&`. Writing
+> `%cd TurkishNLU && pip install ...` fails with
+> `No such file or directory: 'TurkishNLU && pip install ...'`. Keep `%cd` on its
+> own line. (No GPU is needed yet for steps 1–3; turn it on before step 4.)
+>
+> Offline alternative (no Internet): download the repo ZIP from GitHub, add it as
+> a Kaggle *Dataset*, then `%cd /kaggle/input/<dataset-name>`. You still need
+> Internet for `pip install` (morfessor/seqeval/zeyrek aren't pre-installed).
 3. Data + the mandatory alignment guard:
    ```python
    !python scripts/download_data.py
@@ -61,6 +89,17 @@ python scripts/validate_alignment.py --data data/raw/tr-TR.jsonl --models bertur
 python scripts/run_matrix.py
 python scripts/aggregate.py
 ```
+
+## Troubleshooting
+
+| Error you see | Cause | Fix |
+|---|---|---|
+| `Could not resolve host: github.com` | Internet is **off** | Settings → Internet → On (verify phone first) |
+| `Internet` toggle greyed out | Account not phone-verified | Profile → Settings → Phone Verification |
+| `No such file or directory: 'TurkishNLU && pip install ...'` | `%cd` used with `&&` | Put `%cd TurkishNLU` on its own line |
+| `fatal: repository not found` / auth prompt | Repo is **private** | Make it Public, or clone with a token |
+| `ModuleNotFoundError: morfessor/seqeval/zeyrek` | `pip install` skipped/failed | Re-run the `!pip install -q -r requirements.txt` cell (Internet on) |
+| `CUDA ... not available` in training | GPU accelerator off | Settings → Accelerator → GPU T4 |
 
 ## Tips
 
