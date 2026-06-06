@@ -7,7 +7,14 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from src.evaluate import repair_bio
+from src.evaluate import fold_pred_to_words, repair_bio
+
+
+def test_fold_pred_to_words():
+    id2slot = {0: "O", 1: "B-time", 2: "I-time"}
+    # word 0 head at subword 1, word 1 head at subword 3, word 2 truncated (-1)
+    sub_pred_ids = [0, 1, 0, 2, 0]
+    assert fold_pred_to_words([1, 3, -1], sub_pred_ids, id2slot) == ["B-time", "I-time", "O"]
 
 
 def test_repair_bio_fixes_dangling_i():

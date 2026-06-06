@@ -119,12 +119,13 @@ isolated.
 \paragraph{Tokenization and segmentation for Turkish.}
 A complementary line studies tokenization itself. Toraman et
 al.~\cite{toraman2022} analyse the impact of tokenizer choice on Turkish language
-models; recent work evaluates subword strategies at scale and the interaction of
-data, vocabulary, and morphology~\cite{altinok2026,turkishsubword2026}, and
-hybrid morphology-aware tokenizers have been proposed~\cite{tokenswithmeaning2025}.
-The evaluation toolkit for morphologically rich languages now includes intrinsic
-metrics such as fertility and boundary alignment against morpheme
-references~\cite{tokalign70}. This literature, however, targets language
+models; Altınok~\cite{altinok2026} evaluates Turkish subword strategies at scale,
+jointly varying vocabulary and corpus size with a morphology-aware diagnostic
+toolkit (boundary-level F1 against gold morphemes, over-/under-segmentation
+indices); and hybrid morphology-aware tokenizers have been proposed for
+Turkish~\cite{tokenswithmeaning2025}. The evaluation toolkit for morphologically
+rich languages now includes intrinsic metrics such as fertility and boundary
+alignment against morpheme references~\cite{tokalign70}. This literature, however, targets language
 modelling and tasks such as NLI, STS, NER, POS and dependency parsing --- not
 task-oriented NLU, and not slot filling, where the token boundary \emph{is} the
 label boundary. Morphological segmentation has also improved Turkish machine

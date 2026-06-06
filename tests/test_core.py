@@ -45,6 +45,16 @@ def test_segment_with_tags():
     assert pre == words and ptags == tags and widx == [0, 1]
 
 
+def test_morpheme_cutpoints_and_affix():
+    from src.error_analysis import affix_count, morpheme_cutpoints
+
+    char = CharSegmenter()
+    # "abc" -> a|b|c => internal cuts at offsets 1 and 2
+    assert morpheme_cutpoints("abc", char) == {1, 2}
+    assert affix_count("abc", char) == 2  # 3 segments -> 2 "affixes"
+    assert morpheme_cutpoints("x", char) == set()  # single char, no boundary
+
+
 def test_label_maps():
     ex = load_examples(pathlib.Path(__file__).with_name("sample_tr.jsonl"), "train")
     lm = build_label_maps(ex)

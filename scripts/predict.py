@@ -16,7 +16,7 @@ import _bootstrap  # noqa: F401
 import torch
 from transformers import AutoTokenizer
 
-from src.alignment import IGNORE, align_example
+from src.alignment import align_example
 from src.data import load_examples
 from src.evaluate import fold_pred_to_words, repair_bio
 from src.model import JointIntentSlot
