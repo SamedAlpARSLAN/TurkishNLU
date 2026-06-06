@@ -20,8 +20,9 @@ one abstract sentence remain — all marked with `% TODO` and auto-fillable by
 - [ ] Abstract: add the one-sentence headline result.
 - [ ] Table 2 (`tab:main`): paste mean±std from `outputs/results_table.md`
       (produced by `scripts/aggregate.py`).
-- [ ] §7 Error Analysis: paste the three bucket tables from
-      `scripts/error_report.py` (affix count, surface rarity, segmentation shift).
+- [ ] §7 Error Analysis: paste the bucket tables from `scripts/error_report.py`
+      (7 axes), and **upload `results/figures/affix_error.pdf`** next to `main.tex`
+      on Overleaf (referenced by `\includegraphics`, Fig.~\ref{fig:affix}).
 - [ ] §8 Conclusion: instantiate the narrative tied to H1–H3.
 - [ ] Reproducibility: replace `<ANONYMIZED-REPO-URL>` with an
       `anonymous.4open.science` mirror.
