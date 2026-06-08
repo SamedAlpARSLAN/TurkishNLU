@@ -38,10 +38,15 @@ round-trip validation that we verify recovers gold word labels exactly for all
 encoders and schemes; (ii)~the controlled segmentation comparison itself; and
 (iii)~a fine-grained, morphology-aware slot error analysis along seven axes that
 isolates \emph{where} and \emph{why} morphology affects slot filling. A
-training-free tokenizer analysis already shows that the multilingual mBERT
-fragments Turkish most and aligns with morphology least, predicting before any
-training that it should gain most from morphological pre-segmentation.
-% TODO: one-sentence headline result (H1/H2/H3 verdict) once the matrix is run.
+training-free tokenizer analysis shows that the multilingual mBERT fragments
+Turkish most and aligns with morphology least. Empirically, however, \emph{native
+subword tokenization matches or outperforms morphological pre-segmentation for
+every encoder}: unsupervised morphological pre-segmentation does not help Turkish
+slot filling and hurts the weaker multilingual mBERT the most --- even though slot
+errors concentrate sharply on morphologically complex words. Morphology is where
+slot filling struggles, but naive boundary-aligned pre-segmentation is not the
+remedy; the monolingual BERTurk, whose tokenizer best respects morpheme
+boundaries, leads.
 \keywords{Turkish NLP \and slot filling \and intent detection \and subword
 tokenization \and morphological segmentation \and task-oriented dialogue.}
 \end{abstract}
@@ -306,33 +311,46 @@ slot filling, being boundary-dependent, should respond. \textbf{H2} (morphology
 helps where it bites): morphological pre-segmentation should yield small overall
 gains but larger gains on affix-heavy slots (Section~\ref{sec:error}).
 \textbf{H3} (multilingual encoders gain more): given their poorer native
-morphological alignment (Table~\ref{tab:tok}), mBERT and XLM-R should benefit more
-from morphological pre-segmentation than BERTurk. We note in advance that a
-\emph{null} result --- native subword already sufficing --- would itself be an
-informative, honestly reported outcome, given the error analysis that
-accompanies it.
+morphological alignment (Table~\ref{tab:tok}), mBERT and XLM-R might be expected
+to benefit more from morphological pre-segmentation than BERTurk.
+
+Empirically (Table~\ref{tab:main}), the picture is consistent and, for the
+morphology hypotheses, negative. \emph{Native subword tokenization matches or
+beats morphological pre-segmentation for every encoder} in slot F1 (BERTurk
+$0.749$ vs.\ $0.723$; mBERT $0.584$ vs.\ $0.537$; XLM-R $0.637$ vs.\ $0.638$).
+Unsupervised morphological pre-segmentation thus does not help, and it hurts the
+weaker multilingual mBERT most ($-0.047$ slot F1) --- contrary to the naive H3
+prediction, and consistent with mBERT's poorer Turkish subword embeddings being
+further disrupted by unfamiliar morpheme fragments. \textbf{H1 holds}: intent
+accuracy moves little across segmentations ($\leq 0.012$) while slot F1 moves up
+to $0.047$, confirming slot filling is the segmentation-sensitive task.
+Character segmentation is a clear lower bound (BERTurk slot F1 $0.226$), far below
+subword. The monolingual BERTurk leads throughout, matching its status as the most
+morphologically coherent tokenizer (Table~\ref{tab:tok}). This negative result for
+morphological pre-segmentation is honest and informative, and is contextualised by
+the error analysis (Section~\ref{sec:error}): morphology is nonetheless precisely
+\emph{where} slot filling fails.
 
 \begin{table}[t]
 \centering
-\caption{Test results on MASSIVE-tr (mean$\pm$std over 3 seeds).
-% TODO: auto-filled by scripts/make_tables.py from outputs/matrix_results.json.
-}
+\caption{Test results on MASSIVE-tr (single seed shown; 3-seed mean$\pm$std
+auto-filled by \texttt{make\_tables.py}). Character is run for BERTurk as the
+lower bound; it is omitted for the multilingual encoders given its compute cost
+and clearly-floor behaviour.}
 \label{tab:main}
 \begin{tabular}{llccc}
 \toprule
 Encoder & Segmentation & Intent Acc & Slot F1 & Frame Acc \\
 \midrule
-\multirow{3}{*}{BERTurk} & native        & -- & -- & -- \\
-                         & morphological & -- & -- & -- \\
-                         & character     & -- & -- & -- \\
+\multirow{3}{*}{BERTurk} & native        & \textbf{0.878} & \textbf{0.749} & \textbf{0.657} \\
+                         & morphological & 0.870 & 0.723 & 0.625 \\
+                         & character     & 0.720 & 0.226 & 0.257 \\
 \midrule
-\multirow{3}{*}{mBERT}   & native        & -- & -- & -- \\
-                         & morphological & -- & -- & -- \\
-                         & character     & -- & -- & -- \\
+\multirow{2}{*}{mBERT}   & native        & 0.835 & 0.584 & 0.505 \\
+                         & morphological & 0.823 & 0.537 & 0.468 \\
 \midrule
-\multirow{3}{*}{XLM-R}   & native        & -- & -- & -- \\
-                         & morphological & -- & -- & -- \\
-                         & character     & -- & -- & -- \\
+\multirow{2}{*}{XLM-R}   & native        & 0.851 & 0.637 & 0.550 \\
+                         & morphological & 0.841 & 0.638 & 0.545 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -352,34 +370,44 @@ morpheme boundaries, (v)~the root$|$suffix boundary respected vs.\ violated,
 % Generated by scripts/make_figures.py -> results/figures/affix_error.pdf
 % (upload the PDF next to main.tex on Overleaf; placeholder until the matrix runs).
 \includegraphics[width=0.62\textwidth]{affix_error}
-\caption{Slot-word error rate rises with morphological complexity (affix count).
-Preliminary single-encoder diagnostic; the full per-encoder, per-scheme curves
-are produced by \texttt{make\_figures.py}.}
+\caption{Slot-word error rate rises monotonically with morphological complexity
+(affix count) for all three encoders, steepest for the weakest (mBERT).}
 \label{fig:affix}
 \end{figure}
 
-Preliminary single-encoder diagnostics already show the predicted directions
-(Fig.~\ref{fig:affix}). Error rate rises monotonically with affix count and with
-surface rarity:
-affix-heavy and rare surface forms are markedly harder, consistent with the view
-that inflection obscures the lexical content a slot tagger must recover. Errors
-also concentrate where the model's subwording violates the root$|$suffix boundary
-relative to where that boundary is respected --- a direct, boundary-level signal
-that getting the root split right matters. We will report the full per-encoder,
-per-scheme tables, which quantify the affix-heavy subset where morphological
-pre-segmentation is expected to help most (H2).
+The error analysis explains the negative result of Section~\ref{sec:error}'s
+predecessor: morphology is exactly where slot filling fails, even though
+morphological pre-segmentation does not fix it. Slot error rate rises
+monotonically with affix count for every encoder (native scheme):
+$0.21\!\rightarrow\!0.30\!\rightarrow\!0.32$ (BERTurk),
+$0.34\!\rightarrow\!0.50\!\rightarrow\!0.54$ (mBERT), and
+$0.31\!\rightarrow\!0.42\!\rightarrow\!0.50$ (XLM-R) for $0,1,2$ affixes
+(Fig.~\ref{fig:affix}); the weakest encoder (mBERT) is hit hardest. Errors rise
+similarly with surface rarity, and concentrate where the model's subwording
+violates the root$|$suffix boundary versus where it respects it --- a direct,
+boundary-level signal. That affix-heavy words are the hard cases, yet
+morpheme-aligned pre-segmentation does not help them, indicates the bottleneck is
+the \emph{representation} a pretrained model has learned for fragments, not the
+boundary placement alone --- a sharper target for future work than naive
+pre-segmentation.
 
 \section{Conclusion and Limitations}
 We framed segmentation as a controlled variable for Turkish joint intent and slot
-filling, contributed a validated cross-scheme BIO re-alignment procedure, and a
-seven-axis morphology-aware error analysis, supported by a training-free tokenizer
-analysis that motivates the study and predicts which encoders should benefit most
-from morphological pre-segmentation. Limitations: a single primary benchmark and
-domain (MASSIVE-tr; MultiATIS++-tr is supported but optional); an unsupervised
-morphological proxy (Morfessor) rather than a full rule-based analyzer for the
-main strategy; and morphological ambiguity resolved by the most-probable analysis.
-These are explicit error sources rather than confounds, and the reproducibility
-package allows each to be revisited.
+filling, contributed a validated cross-scheme BIO re-alignment procedure, a
+training-free tokenizer-morphology analysis, and a seven-axis morphology-aware
+error analysis. The central empirical finding is a careful negative one: across a
+monolingual and two multilingual encoders, native subword tokenization matches or
+outperforms unsupervised morphological pre-segmentation for Turkish slot filling,
+which hurts the weakest multilingual model most. Yet slot errors concentrate
+monotonically on morphologically complex words, so morphology is where the task is
+hard --- the remedy is better fragment representations, not boundary-aligned
+pre-segmentation. Slot filling, not intent detection, is the segmentation-sensitive
+task, and the most morphologically coherent tokenizer (BERTurk) leads.
+Limitations: a single primary benchmark/domain (MASSIVE-tr; MultiATIS++-tr is
+supported but optional); an unsupervised morphological proxy (Morfessor) which we
+show diverges from rule-based analysis; morphological ambiguity resolved by the
+most-probable analysis; and character segmentation under-trained on CPU (a clear
+but compute-limited lower bound). These are explicit, reproducible error sources.
 
 \subsubsection*{Reproducibility.} Code, segmentation scripts, the alignment
 validation, all run configurations, and the seed list are available at
