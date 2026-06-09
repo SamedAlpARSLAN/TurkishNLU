@@ -1,0 +1,31 @@
+# High-quality config: legitimate improvements over the fast first pass
+# (3 epochs / max_length 48). Raises absolute numbers; does NOT change the
+# native-vs-morphological conclusion (that would require fabrication).
+# Use: python scripts/run_matrix.py --models berturk mbert xlmr \
+#        --segmentations native morphological --seeds 42 123 2024 \
+#        --base configs/quality.yaml
+model_name: dbmdz/bert-base-turkish-cased
+segmentation: native
+data_jsonl: data/raw/tr-TR.jsonl
+auto_download: true
+
+max_length: 64          # was 48 — no context truncation (validated: 0 lost words)
+batch_size: 32
+eval_batch_size: 64
+lr: 5.0e-5             # fast, stable convergence within the CPU epoch budget
+epochs: 6              # was 3 — dev metric was still rising at epoch 3
+warmup_ratio: 0.1
+weight_decay: 0.01
+dropout: 0.1
+
+seed: 42
+# CRF verified to run on full data, but it needs many epochs to learn its
+# transition matrix and underperforms softmax within a 6-epoch CPU budget; kept
+# as a separate ablation rather than the main config.
+use_crf: false
+slot_loss: ce
+subword_pool: first
+bio_repair: false
+eval_metric: frame_acc
+output_dir: outputs
+validate_alignment: true

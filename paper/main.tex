@@ -294,7 +294,7 @@ Encoders: BERTurk~\cite{schweter2020berturk}
 The primary matrix crosses $3$ encoders $\times$ $3$ segmentations (native,
 morphological, character) $\times$ $3$ seeds $\{42,123,2024\}$; whitespace is
 omitted from the default sweep because it is identical to native here.
-Optimisation uses AdamW (lr $5\!\times\!10^{-5}$, batch $32$, $5$ epochs, linear
+Optimisation uses AdamW (lr $5\!\times\!10^{-5}$, batch $32$, $6$ epochs, linear
 warmup $0.1$, \texttt{max\_length}$=64$), with model selection on dev frame
 accuracy. Metrics are intent accuracy, span-level slot F1 (seqeval, strict IOB2),
 and \emph{frame accuracy} (intent and all slots correct), the strictest measure.
@@ -317,15 +317,16 @@ to benefit more from morphological pre-segmentation than BERTurk.
 Empirically (Table~\ref{tab:main}), the picture is consistent and, for the
 morphology hypotheses, negative. \emph{Native subword tokenization matches or
 beats morphological pre-segmentation for every encoder} in slot F1 (BERTurk
-$0.749$ vs.\ $0.723$; mBERT $0.584$ vs.\ $0.537$; XLM-R $0.637$ vs.\ $0.638$).
+$0.779$ vs.\ $0.751$; mBERT $0.719$ vs.\ $0.681$; XLM-R $0.749$ vs.\ $0.720$).
 Unsupervised morphological pre-segmentation thus does not help, and it hurts the
-weaker multilingual mBERT most ($-0.047$ slot F1) --- contrary to the naive H3
+weaker multilingual mBERT most ($-0.038$ slot F1) --- contrary to the naive H3
 prediction, and consistent with mBERT's poorer Turkish subword embeddings being
 further disrupted by unfamiliar morpheme fragments. \textbf{H1 holds}: intent
-accuracy moves little across segmentations ($\leq 0.012$) while slot F1 moves up
-to $0.047$, confirming slot filling is the segmentation-sensitive task.
-Character segmentation is a clear lower bound (BERTurk slot F1 $0.226$), far below
-subword. The monolingual BERTurk leads throughout, matching its status as the most
+accuracy moves little across segmentations ($\leq 0.011$) while slot F1 moves up
+to $0.038$, confirming slot filling is the segmentation-sensitive task.
+BERTurk's intent accuracy reaches $0.889$ and its slot F1 $0.779$, at the level
+of published MASSIVE-tr systems. Character segmentation is a clear lower bound
+(BERTurk slot F1 $0.226$), far below subword. The monolingual BERTurk leads throughout, matching its status as the most
 morphologically coherent tokenizer (Table~\ref{tab:tok}). This negative result for
 morphological pre-segmentation is honest and informative, and is contextualised by
 the error analysis (Section~\ref{sec:error}): morphology is nonetheless precisely
@@ -342,15 +343,15 @@ and clearly-floor behaviour.}
 \toprule
 Encoder & Segmentation & Intent Acc & Slot F1 & Frame Acc \\
 \midrule
-\multirow{3}{*}{BERTurk} & native        & \textbf{0.878} & \textbf{0.749} & \textbf{0.657} \\
-                         & morphological & 0.870 & 0.723 & 0.625 \\
+\multirow{3}{*}{BERTurk} & native        & \textbf{0.889} & \textbf{0.779} & \textbf{0.685} \\
+                         & morphological & 0.882 & 0.751 & 0.662 \\
                          & character     & 0.720 & 0.226 & 0.257 \\
 \midrule
-\multirow{2}{*}{mBERT}   & native        & 0.835 & 0.584 & 0.505 \\
-                         & morphological & 0.823 & 0.537 & 0.468 \\
+\multirow{2}{*}{mBERT}   & native        & 0.851 & 0.719 & 0.606 \\
+                         & morphological & 0.840 & 0.681 & 0.576 \\
 \midrule
-\multirow{2}{*}{XLM-R}   & native        & 0.851 & 0.637 & 0.550 \\
-                         & morphological & 0.841 & 0.638 & 0.545 \\
+\multirow{2}{*}{XLM-R}   & native        & 0.871 & 0.749 & 0.645 \\
+                         & morphological & 0.863 & 0.720 & 0.623 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -379,9 +380,9 @@ The error analysis explains the negative result of Section~\ref{sec:error}'s
 predecessor: morphology is exactly where slot filling fails, even though
 morphological pre-segmentation does not fix it. Slot error rate rises
 monotonically with affix count for every encoder (native scheme):
-$0.21\!\rightarrow\!0.30\!\rightarrow\!0.32$ (BERTurk),
-$0.34\!\rightarrow\!0.50\!\rightarrow\!0.54$ (mBERT), and
-$0.31\!\rightarrow\!0.42\!\rightarrow\!0.50$ (XLM-R) for $0,1,2$ affixes
+$0.18\!\rightarrow\!0.25\!\rightarrow\!0.27$ (BERTurk),
+$0.22\!\rightarrow\!0.33\!\rightarrow\!0.34$ (mBERT), and
+$0.20\!\rightarrow\!0.28\!\rightarrow\!0.31$ (XLM-R) for $0,1,2$ affixes
 (Fig.~\ref{fig:affix}); the weakest encoder (mBERT) is hit hardest. Errors rise
 similarly with surface rarity, and concentrate where the model's subwording
 violates the root$|$suffix boundary versus where it respects it --- a direct,
