@@ -24,3 +24,6 @@ env/
 Thumbs.db
 .vscode/
 .idea/
+
+# Word lock/temp files
+~$*
