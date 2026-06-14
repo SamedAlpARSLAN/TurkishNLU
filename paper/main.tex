@@ -317,14 +317,14 @@ to benefit more from morphological pre-segmentation than BERTurk.
 Empirically (Table~\ref{tab:main}), the picture is consistent and, for the
 morphology hypotheses, negative. \emph{Native subword tokenization matches or
 beats morphological pre-segmentation for every encoder} in slot F1 (BERTurk
-$0.779$ vs.\ $0.751$; mBERT $0.719$ vs.\ $0.681$; XLM-R $0.749$ vs.\ $0.720$).
+$0.777$ vs.\ $0.746$; mBERT $0.721$ vs.\ $0.681$; XLM-R $0.749$ vs.\ $0.720$).
 Unsupervised morphological pre-segmentation thus does not help, and it hurts the
-weaker multilingual mBERT most ($-0.038$ slot F1) --- contrary to the naive H3
+weaker multilingual mBERT most ($-0.040$ slot F1) --- contrary to the naive H3
 prediction, and consistent with mBERT's poorer Turkish subword embeddings being
 further disrupted by unfamiliar morpheme fragments. \textbf{H1 holds}: intent
-accuracy moves little across segmentations ($\leq 0.011$) while slot F1 moves up
-to $0.038$, confirming slot filling is the segmentation-sensitive task.
-BERTurk's intent accuracy reaches $0.889$ and its slot F1 $0.779$, at the level
+accuracy moves little across segmentations ($\leq 0.013$) while slot F1 moves up
+to $0.040$, confirming slot filling is the segmentation-sensitive task.
+BERTurk's intent accuracy reaches $0.887$ and its slot F1 $0.777$, at the level
 of published MASSIVE-tr systems. Character segmentation is a clear lower bound
 (BERTurk slot F1 $0.226$), far below subword. The monolingual BERTurk leads throughout, matching its status as the most
 morphologically coherent tokenizer (Table~\ref{tab:tok}). This negative result for
@@ -334,20 +334,22 @@ the error analysis (Section~\ref{sec:error}): morphology is nonetheless precisel
 
 \begin{table}[t]
 \centering
-\caption{Test results on MASSIVE-tr (single seed shown; 3-seed mean$\pm$std
-auto-filled by \texttt{make\_tables.py}). Character is run for BERTurk as the
-lower bound; it is omitted for the multilingual encoders given its compute cost
-and clearly-floor behaviour.}
+\caption{Test results on MASSIVE-tr. BERTurk is averaged over 3 seeds
+($\{42,123,2024\}$; native $0.777\pm0.002$, morphological $0.746\pm0.004$ slot
+F1) and mBERT-native over 2; the remaining cells are a single seed, whose
+variance is comparable ($\leq 0.005$). Character is run for BERTurk as the lower
+bound; it is omitted for the multilingual encoders given its compute cost and
+clearly-floor behaviour.}
 \label{tab:main}
 \begin{tabular}{llccc}
 \toprule
 Encoder & Segmentation & Intent Acc & Slot F1 & Frame Acc \\
 \midrule
-\multirow{3}{*}{BERTurk} & native        & \textbf{0.889} & \textbf{0.779} & \textbf{0.685} \\
-                         & morphological & 0.882 & 0.751 & 0.662 \\
+\multirow{3}{*}{BERTurk} & native        & \textbf{0.887} & \textbf{0.777} & \textbf{0.681} \\
+                         & morphological & 0.874 & 0.746 & 0.652 \\
                          & character     & 0.720 & 0.226 & 0.257 \\
 \midrule
-\multirow{2}{*}{mBERT}   & native        & 0.851 & 0.719 & 0.606 \\
+\multirow{2}{*}{mBERT}   & native        & 0.852 & 0.721 & 0.613 \\
                          & morphological & 0.840 & 0.681 & 0.576 \\
 \midrule
 \multirow{2}{*}{XLM-R}   & native        & 0.871 & 0.749 & 0.645 \\

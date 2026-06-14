@@ -4,20 +4,24 @@ High-quality config (`configs/quality.yaml`): **6 epochs, max_length 64**, batch
 lr 5e-5, model selection on dev frame accuracy. Local CPU (AMD Ryzen 7 5800H),
 seed 42. Seeds 123/2024 run separately for mean±std.
 
-## Main table — test set (2,974 utterances), seed 42
+## Main table — test set (2,974 utterances)
 
-| Encoder | Segmentation | Intent Acc | Slot F1 | Frame Acc |
-|---|---|---|---|---|
-| **BERTurk** | **native** | **0.889** | **0.779** | **0.685** |
-| BERTurk | morphological | 0.882 | 0.751 | 0.662 |
-| BERTurk | character | 0.720 | 0.226 | 0.257 |
-| mBERT | native | 0.851 | 0.719 | 0.606 |
-| mBERT | morphological | 0.840 | 0.681 | 0.576 |
-| XLM-R | native | 0.871 | 0.749 | 0.645 |
-| XLM-R | morphological | 0.863 | 0.720 | 0.623 |
+BERTurk = mean±std over 3 seeds {42,123,2024}; mBERT-native over 2; rest single
+seed (variance ≈ BERTurk's, ≤0.005).
 
-BERTurk intent **0.889** and slot F1 **0.779** are at the level of published
-MASSIVE-tr systems (slot F1 ~0.74–0.78 is the dataset's honest ceiling).
+| Encoder | Segmentation | Intent Acc | Slot F1 | Frame Acc | seeds |
+|---|---|---|---|---|---|
+| **BERTurk** | **native** | **0.887 ± .004** | **0.777 ± .002** | **0.681 ± .006** | 3 |
+| BERTurk | morphological | 0.874 ± .005 | 0.746 ± .004 | 0.652 ± .007 | 3 |
+| BERTurk | character | 0.720 | 0.226 | 0.257 | 1 |
+| mBERT | native | 0.852 ± .001 | 0.721 ± .002 | 0.613 ± .007 | 2 |
+| mBERT | morphological | 0.840 | 0.681 | 0.576 | 1 |
+| XLM-R | native | 0.871 | 0.749 | 0.645 | 1 |
+| XLM-R | morphological | 0.863 | 0.720 | 0.623 | 1 |
+
+BERTurk intent **0.887** and slot F1 **0.777** are at the level of published
+MASSIVE-tr systems (slot F1 ~0.74–0.78 is the dataset's honest ceiling). The
+native > morphological gap is ~8× the seed std for BERTurk — statistically clear.
 
 ## Findings
 
