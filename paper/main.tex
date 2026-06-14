@@ -279,12 +279,12 @@ Encoder & Scheme & Recovery & Trunc. \\
 A shared encoder feeds two heads: an intent classifier off the \texttt{[CLS]}
 state and a token slot tagger off the sequence states; the loss is
 $\mathcal{L}_{\text{intent}}+\lambda\,\mathcal{L}_{\text{slot}}$~\cite{chen2019bert}.
-We consider four ablations that interact with segmentation: \emph{subword
-pooling}, which forms a fragmented word's representation from the first, mean, or
-max of its sub-tokens (directly probing how fragmentation should be aggregated);
-a linear-chain CRF over the supervised head positions; a focal slot loss to
-counter the dominance of the $O$ class; and constrained (BIO-repair) decoding
-that removes invalid $I$-transitions at inference.
+Our released code additionally provides four optional components that interact
+with segmentation --- \emph{subword pooling}, which forms a fragmented word's
+representation from the first, mean, or max of its sub-tokens; a linear-chain CRF
+over the supervised head positions; a focal slot loss to counter the dominance of
+the $O$ class; and constrained (BIO-repair) decoding that removes invalid
+$I$-transitions at inference --- which we leave to future exploration.
 
 \section{Experimental Setup}
 Encoders: BERTurk~\cite{schweter2020berturk}

@@ -116,7 +116,7 @@ children.push(table([2600, 3000, 1900, 1300], [
 ]));
 children.push(caption("Table 2. BIO re-alignment round-trip on MASSIVE-tr dev (2,033 utterances; 11,033 slot-bearing words). All schemes recover gold word labels exactly; only character segmentation overflows max_length=64."));
 children.push(h2("4.4  Joint model and ablations"));
-children.push(p("A shared encoder feeds two heads: an intent classifier off the [CLS] state and a token slot tagger off the sequence states; the loss is intent_loss + λ·slot_loss (Chen et al., 2019). We consider four ablations that interact with segmentation: subword pooling (first/mean/max of a fragmented word’s sub-tokens), a linear-chain CRF over the supervised head positions, a focal slot loss, and constrained (BIO-repair) decoding."));
+children.push(p("A shared encoder feeds two heads: an intent classifier off the [CLS] state and a token slot tagger off the sequence states; the loss is intent_loss + λ·slot_loss (Chen et al., 2019). Our released code additionally provides four optional components that interact with segmentation — subword pooling (first/mean/max of a fragmented word’s sub-tokens), a linear-chain CRF over the supervised head positions, a focal slot loss, and constrained (BIO-repair) decoding — which we leave to future exploration."));
 
 // 5 Setup
 children.push(h1("5  Experimental Setup"));
